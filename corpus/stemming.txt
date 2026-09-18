@@ -1,0 +1,10 @@
+Stemming and its costs
+A stemmer reduces related words to a shared form so that a search for running also
+finds runs and ran. The Porter algorithm does this with a sequence of suffix rules
+guarded by a syllable count, and it is fast, deterministic and entirely unaware of
+meaning.
+
+That unawareness has a price. University and universe both reduce to univers, so a
+search for one retrieves the other. Lemmatisation avoids the collision by consulting
+a dictionary, at the cost of needing one. Whether the trade is worth making depends
+on the corpus, which is why stemming should be a setting rather than a fixture.

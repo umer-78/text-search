@@ -1,0 +1,9 @@
+Boolean queries
+Boolean retrieval answers whether a document matches, not how well. AND intersects
+posting lists, OR unions them, NOT subtracts from the full set. The result is a set,
+and presenting it in an arbitrary order is more honest than inventing a ranking the
+query never asked for.
+
+Boolean and ranked retrieval are often combined: a boolean filter narrows the
+candidates, then a ranking function orders what survives. Filters over metadata such
+as language or date fit this shape naturally.

@@ -1,0 +1,11 @@
+BM25 ranking
+BM25 scores a document against a query by summing a contribution per term. Each
+contribution multiplies an inverse document frequency by a saturating function of
+the term frequency. Saturation is the important part: the tenth mention of a word
+adds far less than the second, because a document is not ten times more about a
+subject for repeating itself.
+
+The other half is length normalisation. A long document contains more words and so
+mentions everything more often. Dividing by the ratio of this document's length to
+the average keeps a thousand-word page from beating a focused paragraph simply by
+being longer. The parameter b controls how strongly that applies.

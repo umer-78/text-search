@@ -1,0 +1,11 @@
+Inverted indexes
+An inverted index maps each term to the list of documents containing it. Building
+one is the first thing a search engine does and the last thing it undoes. For each
+document the text is tokenised, folded to lower case and usually stemmed, and each
+resulting term gains a posting: the document identifier, and often the positions
+where the term occurred.
+
+Storing positions costs space and buys phrase search. Without them an index knows
+that a document contains both new and york but not whether the two words sat next
+to each other, and a query for the phrase new york will return every document
+mentioning New Mexico and the House of York.

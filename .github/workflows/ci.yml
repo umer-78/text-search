@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Test
+        run: pytest -q
+      - name: The corpus regenerates identically
+        run: |
+          python tools/make_corpus.py
+          git diff --exit-code corpus/
+      - name: Search end to end
+        run: |
+          textsearch index corpus
+          textsearch search "ranking documents by relevance"
+          textsearch phrase "posting lists"
+          textsearch boolean "index AND (bm25 OR ranking) AND NOT compression"
+          textsearch fuzzy "stemer"
+          textsearch explain saturating length normalisation
+          textsearch suggest invertd
+          textsearch stats

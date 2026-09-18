@@ -1,0 +1,8 @@
+Evaluating a search engine
+Precision is the share of returned documents that were relevant. Recall is the share
+of relevant documents that were returned. Improving either usually costs the other,
+and a system tuned on one alone is easy to make look excellent and useless.
+
+Ranked retrieval needs measures that care about order. Mean average precision and
+normalised discounted cumulative gain both reward putting relevant results near the
+top, which is what a person scanning the first page actually experiences.

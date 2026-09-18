@@ -1,0 +1,9 @@
+Caching search results
+Query traffic follows a long tail: a small number of queries account for a large
+share of requests. Caching the result list for those queries removes most of the
+ranking work, and a cache keyed on the normalised query string is usually enough.
+
+The difficulty is invalidation. A document added to the index can change the ranking
+of any query that touches its terms, and tracking that precisely costs more than the
+cache saves. Most systems accept staleness measured in seconds and expire entries on
+a timer rather than on a signal.

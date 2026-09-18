@@ -1,0 +1,10 @@
+Tokenisation
+Tokenisation decides what a word is, and the answer is never obvious. Splitting on
+whitespace leaves punctuation attached. Splitting on every non-letter breaks don't
+into two fragments that mean nothing. Languages without spaces between words need a
+different approach entirely.
+
+Case folding and accent stripping make cafe and Café the same term, which is usually
+wanted and occasionally destroys a distinction that mattered. Every step here is
+lossy, and writing them out rather than importing them is what makes the losses
+visible.

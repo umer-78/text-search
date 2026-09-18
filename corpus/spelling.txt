@@ -1,0 +1,10 @@
+Spelling correction
+A query with a typo matches nothing, and returning nothing is the worst answer a
+search box can give. Edit distance measures how many insertions, deletions and
+substitutions separate two strings, and terms within one or two edits of the query
+make plausible corrections.
+
+Computing that distance against every term in the vocabulary is expensive, so an
+implementation abandons a comparison as soon as it cannot come in under the
+threshold. Where two corrections are equally close, the one appearing in more
+documents is usually the one intended.

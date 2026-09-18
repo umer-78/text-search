@@ -1,0 +1,8 @@
+Phrase queries
+A phrase query asks for terms adjacent and in order. With positions recorded in the
+index the check is direct: for each document containing every term, look for a
+position p where the first term sits at p, the second at p plus one, and so on.
+
+Phrase queries are strict, and that strictness is the feature. A user who quotes a
+phrase has said they want exactly that phrase, and a ranked search that returns
+near misses has ignored them.

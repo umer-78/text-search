@@ -1,0 +1,8 @@
+Compressing posting lists
+Posting lists are long and highly compressible. Document identifiers in a list are
+sorted, so storing the gaps between them rather than the values themselves makes the
+numbers small, and small numbers encode in fewer bits with a variable-length scheme.
+
+Compression trades processor time for memory bandwidth and usually wins, because a
+list that fits in cache is read far faster than one that does not. The same argument
+explains why indexes are stored as immutable blocks and rebuilt rather than edited.

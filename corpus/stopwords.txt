@@ -1,0 +1,9 @@
+Stopwords
+Stopwords are the words too common to discriminate between documents: the, of, and,
+to. Removing them shrinks the index and speeds up queries that would otherwise scan
+enormous posting lists.
+
+Removing them also breaks phrase search. To be or not to be consists entirely of
+stopwords, and an index that dropped them cannot find the line at all. A reasonable
+compromise keeps a placeholder where the stopword stood, so positions stay true and
+adjacent terms remain adjacent.

@@ -1,0 +1,9 @@
+Scaling an index
+A single index fits on one machine until it does not. Sharding splits the documents
+across machines, each building an index over its own share; a query goes to every
+shard and the partial result lists are merged. Adding machines then adds capacity
+almost linearly.
+
+Replication is the other axis: several copies of each shard serve reads and survive
+failures. The two combine, and the arithmetic of how many of each to run is mostly a
+question of how much traffic arrives and how much downtime is tolerable.
