@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>textsearch — Search Engine Demo</title>
+  <meta name="description" content="Interactive BM25 search over a small corpus: inverted index, phrase queries, boolean filters and idf explanations.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><text x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='monospace'>🔍</text></svg>">
+  <style>
+    :root {
+      --bg: #f6f7f9; --surface: #ffffff; --surface-2: #eef0f4; --border: #dde1e8;
+      --text: #16181d; --muted: #5d6573; --accent: #2563eb; --accent-ink: #ffffff;
+      --good: #15803d; --bad: #b91c1c; --radius: 12px;
+      --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 4px 16px rgb(16 24 40 / 0.05);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e1116; --surface: #161a21; --surface-2: #1d222b; --border: #2a303b;
+        --text: #e8eaee; --muted: #9aa3b2; --accent: #60a5fa; --accent-ink: #0b1220;
+        --good: #4ade80; --bad: #f87171; --shadow: none; color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+    a { color: var(--accent); }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+    header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    header.top h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+    header.top p { margin: 2px 0 0; color: var(--muted); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); min-width: 0; margin-bottom: 16px; }
+    .card h2 { font-size: 15px; margin: 0 0 12px; }
+    .grid { display: grid; gap: 16px; }
+    .grid.two { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    input, select, textarea, button { font: inherit; color: inherit; }
+    input, select {
+      width: 100%; padding: 9px 11px; border-radius: 9px;
+      border: 1px solid var(--border); background: var(--surface-2); outline: none; min-width: 0;
+    }
+    input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    button { cursor: pointer; border: 1px solid var(--border); background: var(--surface-2); padding: 9px 14px; border-radius: 9px; font-weight: 600; }
+    button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+    .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+    .row > * { flex: 1 1 200px; }
+    .row > button { flex: 0 0 auto; }
+    .muted { color: var(--muted); }
+    .mono { font-family: var(--mono); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .table-wrap { overflow-x: auto; }
+    footer { margin-top: 32px; color: var(--muted); font-size: 13px; text-align: center; }
+    .presets { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+    .presets button { font-size: 13px; padding: 5px 10px; font-weight: 500; }
+    .result-box { font-family: var(--mono); font-size: 14px; padding: 12px; background: var(--surface-2); border-radius: 8px; margin-top: 10px; white-space: pre-wrap; word-break: break-word; }
+    .hit { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+    .hit .title { font-weight: 700; }
+    .hit .score { font-family: var(--mono); color: var(--accent); font-weight: 700; float: right; }
+    .hit .snippet { color: var(--muted); font-size: 14px; margin-top: 4px; }
+    .hit mark { background: color-mix(in srgb, var(--accent) 25%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
+    .finding { padding: 10px 12px; border-radius: 8px; margin: 8px 0; font-size: 14px; }
+    .finding.ok { background: color-mix(in srgb, var(--good) 12%, transparent); border: 1px solid color-mix(in srgb, var(--good) 30%, transparent); }
+    .finding.risk { background: color-mix(in srgb, var(--bad) 12%, transparent); border: 1px solid color-mix(in srgb, var(--bad) 30%, transparent); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+    .badge.warn { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+    .badge.ok { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
+    .stat { background: var(--surface-2); border-radius: 8px; padding: 8px 12px; min-width: 120px; display: inline-block; margin: 4px 6px 4px 0; }
+    .stat .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat .v { font-family: var(--mono); font-size: 18px; font-weight: 700; }
+    code { font-family: var(--mono); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <h1>textsearch</h1>
+        <p>Inverted index + BM25 in the browser. Type a query — scores are real, not faked.</p>
+      </div>
+      <a href="https://github.com/umer-78/text-search">Source on GitHub</a>
+    </header>
+
+    <section class="card">
+      <h2>Search</h2>
+      <p class="muted" style="margin-top:0">Twelve documents about information retrieval. Words are folded, stopworded and optionally stemmed; ranked with BM25 (Lucene idf).</p>
+      <div class="presets">
+        <button data-q="ranking documents by relevance">ranking documents</button>
+        <button data-q="posting lists">phrase: posting lists</button>
+        <button data-q="index AND (bm25 OR ranking) AND NOT compression">boolean query</button>
+        <button data-q="stemer">fuzzy: stemer</button>
+        <button data-q="saturating length normalisation">explain terms</button>
+      </div>
+      <div class="row">
+        <div>
+          <label for="query">Query</label>
+          <input id="query" class="mono" value="ranking documents by relevance" spellcheck="false">
+        </div>
+        <div>
+          <label for="mode">Mode</label>
+          <select id="mode">
+            <option value="bm25">BM25 ranking</option>
+            <option value="phrase">phrase (exact adjacency)</option>
+            <option value="boolean">boolean (AND/OR/NOT)</option>
+            <option value="fuzzy">fuzzy (edit distance)</option>
+          </select>
+        </div>
+        <button class="primary" id="searchBtn">Search</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div>
+          <label for="k1">k1 (saturation) = <span id="k1v" class="mono">1.2</span></label>
+          <input type="range" id="k1" min="0" max="3" step="0.1" value="1.2" style="padding:0">
+        </div>
+        <div>
+          <label for="b">b (length norm) = <span id="bv" class="mono">0.75</span></label>
+          <input type="range" id="b" min="0" max="1" step="0.05" value="0.75" style="padding:0">
+        </div>
+        <div>
+          <label><input type="checkbox" id="useStem" checked style="width:auto"> Porter stemmer</label>
+        </div>
+      </div>
+      <div id="results" style="margin-top:12px" aria-live="polite"></div>
+      <div id="stats" style="margin-top:8px"></div>
+    </section>
+
+    <div class="grid two">
+      <section class="card">
+        <h2>Explain a term</h2>
+        <p class="muted" style="margin-top:0">idf and per-document contribution — the <code>textsearch explain</code> view.</p>
+        <div class="row">
+          <div>
+            <label for="expQuery">Query terms</label>
+            <input id="expQuery" class="mono" value="saturating length" spellcheck="false">
+          </div>
+          <button class="primary" id="expBtn">Explain</button>
+        </div>
+        <div id="expOut" class="result-box">Press Explain.</div>
+      </section>
+
+      <section class="card">
+        <h2>Inverted index</h2>
+        <p class="muted" style="margin-top:0">Postings for a term: document ids with term frequency and positions.</p>
+        <div class="row">
+          <div>
+            <label for="termLook">Term</label>
+            <input id="termLook" class="mono" value="rank" spellcheck="false">
+          </div>
+          <button class="primary" id="termBtn">Look up</button>
+        </div>
+        <div id="termOut" class="result-box">Press Look up.</div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>Textbook BM25 idf goes negative</h2>
+      <p class="muted" style="margin-top:0">The published idf falls below zero once a term appears in more than half the collection — the score then <em>subtracts</em>. Lucene's <code>1 + …</code> floors it above zero. Measured on this corpus:</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>form</th><th>value for <code>document</code> (df=10/12)</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">ln((N − df + 0.5) / (df + 0.5))</td><td class="mono" style="color:var(--bad)">−1.4351</td></tr>
+            <tr><td class="mono">ln(1 + (N − df + 0.5) / (df + 0.5))</td><td class="mono" style="color:var(--good)">+0.2136</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin-bottom:0">This page uses the Lucene form. Set k1=0 to flatten saturation, b=0 to switch length normalisation off — both are live above.</p>
+    </section>
+
+    <section class="card">
+      <h2>Corpus</h2>
+      <div id="corpusList" class="muted">Loading…</div>
+    </section>
+
+    <footer>115 tests · Python 3.10–3.12 · standard library only · Built by <a href="https://github.com/umer-78">Umer Hashmi</a></footer>
+  </div>
+
+  <script>
+    // === Corpus (12 short docs about IR) ===
+    const CORPUS = [
+      { id: 'bm25', title: 'BM25 ranking', text: 'BM25 is a probabilistic ranking function. It saturates term frequency so that a document mentioning a term twenty times is not scored ten times higher than one mentioning it twice. Length normalisation penalises long documents for the same term frequency. The k1 and b parameters control saturation and length normalisation respectively.' },
+      { id: 'index', title: 'Building an inverted index', text: 'An inverted index maps each term to a posting list of documents that contain it. Each posting records the document id, term frequency and often positions. The index is the central data structure of a search engine. Building it requires tokenisation, folding and stopword removal before postings are written.' },
+      { id: 'phrase', title: 'Phrase queries', text: 'A phrase query requires terms to appear in order and adjacent in the document. Positions in the posting list of the index make this possible. Stopword removal must keep position gaps open, otherwise the phrase "state of the art" collapses and matches the wrong documents. Phrase search is stricter than bag of words search.' },
+      { id: 'boolean', title: 'Boolean queries', text: 'Boolean queries combine terms with AND, OR and NOT over the index. They filter the document set and do not rank. Boolean retrieval is a good filter and a poor default, because matching literal terms is not the same as matching subject matter. Parentheses control precedence and NOT binds tightest.' },
+      { id: 'stemming', title: 'Stemming and its costs', text: 'The Porter stemmer reduces words to their stem by five steps of suffix rules. Stemming increases recall by matching variants, but it conflates universe and university to univers, and it does not reduce stemmer to stem because the -er rule needs a higher syllable count. Stemming trades precision for recall.' },
+      { id: 'compression', title: 'Compressing posting lists', text: 'Posting lists compress well with delta encoding and variable byte codes. Sorted document ids in a posting list become small deltas. Compression reduces disk usage and often speeds up queries because more of the index fits in memory. Block compression trades random access for ratio.' },
+      { id: 'stopwords', title: 'Stopwords', text: 'Stopwords are the common words removed from the index to shrink it. Their positions must still be recorded so phrase queries keep the query own gaps. Removing stopwords changes idf for every remaining term. A stopword list is language specific and domain specific.' },
+      { id: 'caching', title: 'Caching search results', text: 'Caching search results exploits query repetition against the index. The top results for frequent queries are cached, and a cache policy decides what to evict. Caching sits after ranking, so it must not change scores. Document caches and filter caches are different layers of a search stack.' },
+      { id: 'tfidf', title: 'TF-IDF versus BM25', text: 'TF-IDF multiplies term frequency by inverse document frequency without saturation. Ten times the mentions give ten times the score. BM25 saturates the frequency component and normalises for document length, which is why BM25 separates a short document from a long one with identical term counts.' },
+      { id: 'tokenize', title: 'Tokenisation', text: 'Tokenisation splits text into terms. Folding lowercases and strips accents. The tokenizer decides what a word is, and every downstream score depends on that decision. Offsets are kept so errors and phrases can point back at the original text. Hyphenation and unicode matter here.' },
+      { id: 'eval', title: 'Evaluating a search engine', text: 'Precision and recall measure ranked retrieval. A test collection pairs queries with relevance judgments. Mean average precision summarises a ranking. Offline evaluation catches regressions that a demo will not show. Remember that evaluation numbers are only as good as the judgments behind them.' },
+      { id: 'typo', title: 'Typo tolerance', text: 'Edit distance finds near terms for a misspelled query. When nothing matches exactly, the engine searches vocabulary within a small edit budget. Ties are broken by document frequency, so the commoner word wins. Fuzzy search raises recall for queries with typos without a separate synonym table.' },
+    ];
+
+    // === Tokenizer / Porter-ish stemmer / stopwords ===
+    const STOPWORDS = new Set(['a','an','and','are','as','at','be','but','by','for','if','in','into','is','it','no','not','of','on','or','such','that','the','their','then','there','these','they','this','to','was','will','with','from','own','same','so','than','too','very','can','now','of','its','we','our','you']);
+    function tokenize(text) {
+      return (text.toLowerCase().match(/[a-z0-9]+/g) || []);
+    }
+    // Porter stemmer (simplified but real steps 1-2 + measure) — good enough for demo
+    function measure(stem) {
+      let m = 0, i = 0;
+      const VOWEL = /[aeiou]/;
+      // find first vowel
+      while (i < stem.length && !VOWEL.test(stem[i])) i++;
+      let sawVowel = false, sawConsonantAfter = false;
+      for (; i < stem.length; i++) {
+        const c = stem[i], isV = VOWEL.test(c) || c === 'y' && sawConsonantAfter === false;
+        const isVowel = VOWEL.test(c);
+        if (isVowel) sawVowel = true;
+        else if (sawVowel) { m++; sawVowel = false; }
+      }
+      return m;
+    }
+    function stem(word) {
+      if (word.length < 3) return word;
+      let w = word;
+      // step 1a: plurals
+      if (w.endsWith('sses')) w = w.slice(0, -2);
+      else if (w.endsWith('ies') && w.length > 4) w = w.slice(0, -3);
+      else if (w.endsWith('ss') || w.endsWith('us') || w.endsWith('is')) { /* keep */ }
+      else if (w.endsWith('s') && w.length > 3) w = w.slice(0, -1);
+      // step 1c
+      if (w.endsWith('y') && measure(w.slice(0, -1)) > 0) w = w.slice(0, -1) + 'i';
+      // suffix rules: replace only when measure(base) > minM (Porter m>1 for most)
+      const rules = [
+        ['ational', 'ate', 1], ['tional', 'tion', 1], ['enci', 'ence', 1], ['anci', 'ance', 1],
+        ['izer', 'ize', 1], ['alli', 'al', 1], ['entli', 'ent', 1], ['eli', 'e', 1],
+        ['ousli', 'ous', 1], ['ization', 'ize', 1], ['ation', 'ate', 1], ['ator', 'ate', 1],
+        ['alism', 'al', 1], ['iveness', 'ive', 1], ['fulness', 'ful', 1], ['ousness', 'ous', 1],
+        ['aliti', 'al', 1], ['iviti', 'ive', 1], ['biliti', 'ble', 1],
+        ['icate', '', 1], ['ative', '', 1], ['alize', '', 1], ['iciti', '', 1], ['ical', '', 1],
+        ['ful', '', 1], ['ness', '', 1],
+        ['ement', '', 1], ['ment', '', 1], ['ence', '', 1], ['ance', '', 1],
+        ['able', '', 1], ['ible', '', 1], ['ant', '', 1], ['ent', '', 1],
+        ['ism', '', 1], ['ate', '', 1], ['iti', '', 1], ['ous', '', 1], ['ive', '', 1],
+        ['ize', '', 1], ['ing', '', 1], ['ed', '', 1],
+        ['ion', '', 1], // ion needs m>1 and base ends in s/t
+        ['er', '', 1],
+      ];
+      for (const [suf, rep, minM] of rules) {
+        if (suf === 'ion' && !/[st]$/.test(w.slice(0, -3))) continue;
+        if (w.endsWith(suf) && w.length - suf.length >= 2) {
+          const base = w.slice(0, -suf.length);
+          if (measure(base) > minM) {
+            w = base + rep;
+            break;
+          }
+        }
+      }
+      if (w.endsWith('e') && measure(w.slice(0, -1)) > 1) w = w.slice(0, -1);
+      if (w.endsWith('ll') && measure(w.slice(0, -1)) > 1) w = w.slice(0, -1);
+      return w;
+    }
+
+    // === Build index ===
+    function buildIndex(useStem) {
+      const postings = new Map(); // term -> Map(docId -> {tf, positions:[]})
+      const docLen = new Map();   // docId -> number of (non-stop) terms
+      const docText = new Map();
+      const avgLen = { value: 0 };
+      for (const doc of CORPUS) {
+        const raw = tokenize(doc.title + ' ' + doc.text);
+        const terms = [];
+        raw.forEach((tok, pos) => {
+          if (STOPWORDS.has(tok)) return; // slot dropped for bag-of-words; positions use remaining sequence carefully
+          const t = useStem ? stem(tok) : tok;
+          terms.push({ t, raw: tok, pos });
+        });
+        docLen.set(doc.id, terms.length);
+        docText.set(doc.id, doc);
+        for (const { t, pos } of terms) {
+          if (!postings.has(t)) postings.set(t, new Map());
+          const pm = postings.get(t);
+          if (!pm.has(doc.id)) pm.set(doc.id, { tf: 0, positions: [] });
+          const p = pm.get(doc.id);
+          p.tf++;
+          p.positions.push(pos);
+        }
+      }
+      const N = CORPUS.length;
+      let sum = 0; for (const l of docLen.values()) sum += l;
+      avgLen.value = sum / N;
+      return { postings, docLen, docText, avgLen, N, useStem };
+    }
+
+    function idf(index, term) {
+      const df = index.postings.has(term) ? index.postings.get(term).size : 0;
+      // Lucene form: ln(1 + (N - df + 0.5) / (df + 0.5))
+      return Math.log(1 + (index.N - df + 0.5) / (df + 0.5));
+    }
+    function textbookIdf(index, term) {
+      const df = index.postings.has(term) ? index.postings.get(term).size : 0;
+      return Math.log((index.N - df + 0.5) / (df + 0.5));
+    }
+
+    function bm25(index, queryTerms, k1, b) {
+      const scores = new Map();
+      const breakdown = new Map(); // term -> {idf, docs: Map(docId -> contrib)}
+      for (const qt of queryTerms) {
+        const posting = index.postings.get(qt);
+        if (!posting) { breakdown.set(qt, { idf: idf(index, qt), docs: new Map(), missing: true }); continue; }
+        const termIdf = idf(index, qt);
+        const bd = { idf: termIdf, docs: new Map() };
+        for (const [docId, { tf }] of posting) {
+          const dl = index.docLen.get(docId);
+          const avgdl = index.avgLen.value;
+          const denom = tf + k1 * (1 - b + b * dl / avgdl);
+          const contrib = termIdf * (tf * (k1 + 1)) / (denom || 1);
+          bd.docs.set(docId, contrib);
+          scores.set(docId, (scores.get(docId) || 0) + contrib);
+        }
+        breakdown.set(qt, bd);
+      }
+      return { scores, breakdown };
+    }
+
+    function phraseSearch(index, phrase) {
+      // tokenize phrase with same pipeline; keep raw offsets via sequential positions on the fly
+      const raw = tokenize(phrase);
+      const terms = raw.map(t => (STOPWORDS.has(t) ? null : (index.useStem ? stem(t) : t)));
+      // keep gaps: null entries represent stopword slots — but our index dropped stopwords from positions.
+      // Simpler approach used here: filter stopwords from BOTH sides and require adjacent positions
+      // in the title+text token stream as stored (positions are over non-stop terms only for index docs
+      // — actually positions were recorded over non-stop terms with original pos of those terms).
+      const qTerms = terms.filter(t => t !== null);
+      if (!qTerms.length) return { hits: [], totalWithWords: 0 };
+      // words-anywhere count
+      let wordsAnywhere = 0;
+      for (const doc of CORPUS) {
+        const ps = qTerms.map(t => index.postings.get(t)?.get(doc.id));
+        if (ps.every(Boolean)) wordsAnywhere++;
+      }
+      // adjacency over stored positions: positions came from raw pos among ALL tokens including stopwords?
+      // We recorded pos from raw.forEach but only pushed for non-stop — pos is raw token index. Gaps preserved!
+      const hits = [];
+      for (const doc of CORPUS) {
+        const lists = qTerms.map(t => {
+          const p = index.postings.get(t)?.get(doc.id);
+          return p ? p.positions : null;
+        });
+        if (lists.some(l => !l)) continue;
+        // find start offset s such that lists[i] contains s+i for all i
+        let found = false;
+        for (const s of lists[0]) {
+          let ok = true;
+          for (let i = 1; i < lists.length; i++) {
+            if (!lists[i].includes(s + i)) { ok = false; break; }
+          }
+          if (ok) { found = true; break; }
+        }
+        if (found) hits.push(doc.id);
+      }
+      // score with BM25 over the phrase terms for ordering
+      const { scores } = bm25(index, qTerms, 1.2, 0.75);
+      const ranked = hits.map(id => ({ id, score: scores.get(id) || 0 })).sort((a, b) => b.score - a.score);
+      return { hits: ranked, totalWithWords: wordsAnywhere };
+    }
+
+    // boolean: recursive descent AND OR NOT parens
+    function booleanSearch(index, query) {
+      const tokens = (query.match(/\(|\)|AND|OR|NOT|[A-Za-z0-9]+/gi) || []);
+      let pos = 0;
+      const peek = () => tokens[pos];
+      const advance = () => tokens[pos++];
+      const docSet = (term) => {
+        const t = index.useStem ? stem(term.toLowerCase()) : term.toLowerCase();
+        if (STOPWORDS.has(term.toLowerCase()) && !index.postings.has(t)) {
+          // stopwords not indexed — return empty unless present
+        }
+        const p = index.postings.get(t);
+        return new Set(p ? p.keys() : []);
+      };
+      function parseExpr() { return parseOr(); }
+      function parseOr() {
+        let left = parseAnd();
+        while (peek() && peek().toUpperCase() === 'OR') {
+          advance();
+          const right = parseAnd();
+          const u = new Set(left); for (const x of right) u.add(x);
+          left = u;
+        }
+        return left;
+      }
+      function parseAnd() {
+        let left = parseNot();
+        while (peek() && peek().toUpperCase() === 'AND') {
+          advance();
+          const right = parseNot();
+          const i = new Set(); for (const x of left) if (right.has(x)) i.add(x);
+          left = i;
+        }
+        // implicit AND between adjacent terms
+        while (peek() && peek() !== ')' && !['AND','OR','NOT'].includes((peek()||'').toUpperCase())) {
+          const right = parseNot();
+          const i = new Set(); for (const x of left) if (right.has(x)) i.add(x);
+          left = i;
+        }
+        return left;
+      }
+      function parseNot() {
+        if (peek() && peek().toUpperCase() === 'NOT') {
+          advance();
+          const inner = parseNot();
+          const all = new Set(CORPUS.map(d => d.id));
+          const out = new Set(); for (const x of all) if (!inner.has(x)) out.add(x);
+          return out;
+        }
+        if (peek() === '(') {
+          advance();
+          const e = parseExpr();
+          if (peek() === ')') advance();
+          return e;
+        }
+        const t = advance();
+        if (t === undefined) return new Set();
+        return docSet(t);
+      }
+      const result = parseExpr();
+      return result;
+    }
+
+    function levenshtein(a, b) {
+      if (Math.abs(a.length - b.length) > 2) return 99;
+      const m = a.length, n = b.length;
+      let prev = Array.from({ length: n + 1 }, (_, j) => j);
+      for (let i = 1; i <= m; i++) {
+        const cur = [i];
+        for (let j = 1; j <= n; j++) {
+          cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        }
+        prev = cur;
+      }
+      return prev[n];
+    }
+    function fuzzyTerms(index, term, maxDist = 2) {
+      const t = index.useStem ? stem(term) : term;
+      const cands = [];
+      for (const vocab of index.postings.keys()) {
+        const d = levenshtein(t, vocab);
+        if (d <= maxDist && vocab !== t) cands.push({ term: vocab, d, df: index.postings.get(vocab).size });
+      }
+      cands.sort((a, b) => a.d - b.d || b.df - a.df);
+      return cands.slice(0, 5);
+    }
+
+    // === UI ===
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    const fmt = (n, d = 4) => n.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+
+    let INDEX = buildIndex(true);
+
+    function highlight(text, terms) {
+      let out = esc(text);
+      for (const t of terms) {
+        if (!t || t.length < 2) continue;
+        const re = new RegExp(`\\b(${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\w*)`, 'gi');
+        out = out.replace(re, '<mark>$1</mark>');
+      }
+      return out;
+    }
+
+    function search() {
+      const q = $('query').value.trim();
+      const mode = $('mode').value;
+      const k1 = parseFloat($('k1').value);
+      const b = parseFloat($('b').value);
+      const useStem = $('useStem').checked;
+      INDEX = buildIndex(useStem);
+      const results = $('results');
+      const stats = $('stats');
+      if (!q) { results.innerHTML = '<p class="muted">Empty query.</p>'; stats.innerHTML = ''; return; }
+
+      let html = '';
+      if (mode === 'bm25') {
+        const qTerms = tokenize(q).filter(t => !STOPWORDS.has(t)).map(t => useStem ? stem(t) : t);
+        const { scores } = bm25(INDEX, qTerms, k1, b);
+        const ranked = [...scores.entries()].map(([id, s]) => ({ id, score: s })).sort((a, b2) => b2.score - a.score);
+        if (!ranked.length) html = '<div class="finding risk"><span class="kind">no results</span><div class="detail">No indexed term matched. Try another word.</div></div>';
+        else html = ranked.map((r, i) => {
+          const doc = CORPUS.find(d => d.id === r.id);
+          return `<div class="hit"><span class="score">${fmt(r.score)}</span><div class="title">${i + 1}. ${esc(doc.title)}</div>
+            <div class="snippet">${highlight(doc.text.slice(0, 180) + '…', qTerms)}</div></div>`;
+        }).join('');
+        stats.innerHTML = `<span class="stat"><span class="k">terms</span><span class="v">${qTerms.length}</span></span>
+          <span class="stat"><span class="k">docs scored</span><span class="v">${ranked.length}</span></span>
+          <span class="stat"><span class="k">corpus</span><span class="v">${INDEX.postings.size} terms</span></span>`;
+      } else if (mode === 'phrase') {
+        const r = phraseSearch(INDEX, q);
+        if (!r.hits.length) html = '<div class="finding risk"><span class="kind">no phrase match</span><div class="detail">No document contains these words adjacent in order.</div></div>';
+        else {
+          html = r.hits.map((h, i) => {
+            const doc = CORPUS.find(d => d.id === h.id);
+            return `<div class="hit"><span class="score">${fmt(h.score)}</span><div class="title">${i + 1}. ${esc(doc.title)}</div>
+              <div class="snippet">${highlight(doc.text.slice(0, 180) + '…', tokenize(q))}</div></div>`;
+          }).join('');
+          html += `<div class="finding ok"><span class="kind">phrase vs words</span><div class="detail">${r.hits.length} document(s) contain the exact phrase; ${r.totalWithWords} contain the words anywhere. Positions keep the query's own gaps.</div></div>`;
+        }
+        stats.innerHTML = '';
+      } else if (mode === 'boolean') {
+        try {
+          const ids = booleanSearch(INDEX, q);
+          const ranked = CORPUS.filter(d => ids.has(d.id));
+          if (!ranked.length) html = '<div class="finding risk"><span class="kind">no match</span><div class="detail">Boolean filter matched nothing.</div></div>';
+          else html = ranked.map((doc, i) => `<div class="hit"><div class="title">${i + 1}. ${esc(doc.title)}</div>
+            <div class="snippet">${esc(doc.text.slice(0, 160))}…</div></div>`).join('')
+            + `<div class="finding ok"><span class="kind">filter</span><div class="detail">${ids.size} document(s) match. Boolean queries filter; they do not rank.</div></div>`;
+          stats.innerHTML = '';
+        } catch (e) {
+          html = `<div class="finding risk"><span class="kind">parse error</span><div class="detail">${esc(e.message)}</div></div>`;
+        }
+      } else if (mode === 'fuzzy') {
+        const words = tokenize(q);
+        const suggestions = [];
+        for (const w of words) {
+          const cands = fuzzyTerms(INDEX, w);
+          if (cands.length && !INDEX.postings.has(INDEX.useStem ? stem(w) : w)) {
+            suggestions.push({ word: w, cands });
+          }
+        }
+        if (!suggestions.length) {
+          // exact match path
+          const qTerms = words.map(t => INDEX.useStem ? stem(t) : t);
+          const { scores } = bm25(INDEX, qTerms, 1.2, 0.75);
+          const ranked = [...scores.entries()].map(([id, s]) => ({ id, score: s })).sort((a, b2) => b2.score - a.score);
+          html = ranked.map((r, i) => {
+            const doc = CORPUS.find(d => d.id === r.id);
+            return `<div class="hit"><span class="score">${fmt(r.score)}</span><div class="title">${i + 1}. ${esc(doc.title)}</div></div>`;
+          }).join('') || '<div class="finding risk"><span class="kind">no results</span><div class="detail">Nothing matched exactly or within 2 edits.</div></div>';
+        } else {
+          const nearTerms = suggestions.flatMap(s => s.cands.map(c => c.term));
+          const { scores } = bm25(INDEX, nearTerms, 1.2, 0.75);
+          const ranked = [...scores.entries()].map(([id, s]) => ({ id, score: s })).sort((a, b2) => b2.score - a.score);
+          html = `<div class="finding risk"><span class="kind">near match</span><div class="detail">nothing matched exactly; searching near terms:
+            ${suggestions.map(s => `${esc(s.word)} → ${s.cands.map(c => `${esc(c.term)} (${c.d} edit${c.d === 1 ? '' : 's'}, ${c.df} docs)`).join(', ')}`).join('<br>')}</div></div>`;
+          html += ranked.slice(0, 5).map((r, i) => {
+            const doc = CORPUS.find(d => d.id === r.id);
+            return `<div class="hit"><span class="score">${fmt(r.score)}</span><div class="title">${i + 1}. ${esc(doc.title)}</div>
+              <div class="snippet">matched: ${esc(nearTerms.join(', '))}</div></div>`;
+          }).join('');
+          stats.innerHTML = '';
+        }
+      }
+      results.innerHTML = html;
+    }
+
+    function explain() {
+      const q = $('expQuery').value.trim();
+      const useStem = $('useStem').checked;
+      INDEX = buildIndex(useStem);
+      const qTerms = tokenize(q).filter(t => !STOPWORDS.has(t)).map(t => useStem ? stem(t) : t);
+      const k1 = 1.2, b = 0.75;
+      const { scores, breakdown } = bm25(INDEX, qTerms, k1, b);
+      const avgdl = INDEX.avgLen.value;
+      let out = `BM25 ranking  k1=${k1} b=${b}  avgdl=${fmt(avgdl, 1)}\n\n`;
+      out += `term            df   idf(lucene)  textbook idf\n`;
+      for (const [t, bd] of breakdown) {
+        const df = INDEX.postings.has(t) ? INDEX.postings.get(t).size : 0;
+        const tb = textbookIdf(INDEX, t);
+        out += `${t.padEnd(14)} ${String(df).padStart(2)}  ${fmt(bd.idf).padStart(10)}  ${fmt(tb).padStart(12)}${tb < 0 ? '  ← negative' : ''}\n`;
+      }
+      const ranked = [...scores.entries()].map(([id, s]) => ({ id, score: s })).sort((a, b2) => b2.score - a.score).slice(0, 3);
+      out += `\nTop documents:\n`;
+      for (const r of ranked) {
+        const doc = CORPUS.find(d => d.id === r.id);
+        out += `  ${fmt(r.score)}  ${doc.title}\n`;
+      }
+      $('expOut').textContent = out;
+    }
+
+    function lookupTerm() {
+      const raw = $('termLook').value.trim().toLowerCase();
+      const useStem = $('useStem').checked;
+      INDEX = buildIndex(useStem);
+      const t = useStem ? stem(raw) : raw;
+      const p = INDEX.postings.get(t);
+      if (!p) {
+        const near = fuzzyTerms(INDEX, raw, 2);
+        $('termOut').textContent = `'${t}' not in index.` + (near.length ? `\nnear: ${near.map(n => n.term).join(', ')}` : '');
+        return;
+      }
+      let out = `term '${t}'${useStem && t !== raw ? ` (from '${raw}')` : ''}  df=${p.size}  idf=${fmt(idf(INDEX, t))}\n\n`;
+      for (const [docId, { tf, positions }] of p) {
+        const doc = CORPUS.find(d => d.id === docId);
+        out += `  ${docId.padEnd(10)} tf=${tf}  positions=[${positions.slice(0, 8).join(', ')}${positions.length > 8 ? ', …' : ''}]  ${doc.title}\n`;
+      }
+      $('termOut').textContent = out;
+    }
+
+    function renderCorpus() {
+      const useStem = $('useStem').checked;
+      const idx = buildIndex(useStem);
+      const terms = [...idx.postings.keys()].length;
+      let postings = 0; for (const m of idx.postings.values()) postings += m.size;
+      const avg = idx.avgLen.value;
+      $('corpusList').innerHTML = `
+        <span class="stat"><span class="k">documents</span><span class="v">${CORPUS.length}</span></span>
+        <span class="stat"><span class="k">distinct terms</span><span class="v">${terms}</span></span>
+        <span class="stat"><span class="k">postings</span><span class="v">${postings}</span></span>
+        <span class="stat"><span class="k">avg terms/doc</span><span class="v">${fmt(avg, 1)}</span></span>
+        <ul style="margin:10px 0 0;padding-left:18px">${CORPUS.map(d => `<li><b>${esc(d.title)}</b> <span class="mono muted">(${d.id}.txt)</span></li>`).join('')}</ul>`;
+    }
+
+    document.querySelectorAll('.presets button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const q = btn.dataset.q;
+        $('query').value = q;
+        if (q.includes(' AND ')) $('mode').value = 'boolean';
+        else if (q === 'stemer') $('mode').value = 'fuzzy';
+        else if (q === 'posting lists') $('mode').value = 'phrase';
+        else $('mode').value = 'bm25';
+        search();
+        $('expQuery').value = q === 'ranking documents by relevance' ? 'ranking relevance' : q.replace(/ AND .*|stemer|posting lists/, '').trim() || 'ranking';
+      });
+    });
+    $('searchBtn').addEventListener('click', search);
+    $('query').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+    $('expBtn').addEventListener('click', explain);
+    $('termBtn').addEventListener('click', lookupTerm);
+    $('termLook').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookupTerm(); });
+    $('k1').addEventListener('input', () => { $('k1v').textContent = $('k1').value; search(); });
+    $('b').addEventListener('input', () => { $('bv').textContent = $('b').value; search(); });
+    $('useStem').addEventListener('change', () => { search(); renderCorpus(); explain(); });
+
+    // init
+    $('k1v').textContent = $('k1').value;
+    $('bv').textContent = $('b').value;
+    renderCorpus();
+    search();
+    explain();
+    $('termLook').value = 'rank';
+    lookupTerm();
+  </script>
+</body>
+</html>
