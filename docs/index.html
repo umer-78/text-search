@@ -372,6 +372,59 @@ footer a:hover { color: var(--accent); }
 .hit mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; font-weight: 600; }
 #corpusList ul { margin: 12px 0 0; padding-left: 20px; }
 #corpusList li { margin: 4px 0; }
+/* === advanced features === */
+.syntax-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 8px; }
+.syntax-item {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+  animation: fadeUp 0.4s var(--ease) both;
+}
+.syntax-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+.syntax-item code { display: block; font-weight: 700; color: var(--accent); margin-bottom: 4px; font-size: 13px; }
+.syntax-item .ex { font-size: 12.5px; color: var(--muted); }
+.ranking-bar {
+  position: relative; height: 26px; background: var(--surface-2); border-radius: 7px;
+  overflow: hidden; margin-top: 6px;
+}
+.ranking-bar i {
+  position: absolute; inset: 0 auto 0 0; height: 100%;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #8b5cf6));
+  border-radius: 7px; transition: width 0.7s var(--ease);
+  animation: barIn 0.7s var(--ease) both;
+}
+.ranking-bar span {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text); z-index: 1;
+}
+@keyframes barIn { from { width: 0 !important; } }
+.idf-canvas, .perf-canvas { width: 100%; height: auto; display: block; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); margin-top: 10px; }
+.stem-steps { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.stem-step {
+  font-family: var(--mono); font-size: 13px; padding: 6px 12px; border-radius: 99px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  animation: scaleIn 0.35s var(--ease-bounce) both;
+}
+.stem-step.final { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 40%, transparent); color: var(--good); font-weight: 700; }
+.stem-arrow { color: var(--muted); font-size: 13px; }
+.fb-doc {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--border);
+  border-radius: 10px; margin: 6px 0; cursor: pointer; background: var(--surface);
+  transition: all 0.2s var(--ease); font-size: 14px;
+}
+.fb-doc:hover { border-color: var(--accent); transform: translateX(3px); }
+.fb-doc.relevant { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+.fb-doc input { width: auto; }
+.suggest-box { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+.suggest-box button {
+  font-size: 13px; padding: 5px 12px; border-radius: 99px; background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); font-weight: 600;
+}
+.suggest-box button:hover { background: var(--accent); color: #fff; transform: translateY(-1px); }
+.typo-q { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+.qual-meter { height: 10px; background: var(--surface-2); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+.qual-meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--bad), var(--warn), var(--good)); transition: width 0.5s var(--ease); border-radius: 99px; }
+mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; animation: hlPop 0.3s var(--ease); }
+@keyframes hlPop { from { background: var(--accent); color: #fff; } }
   </style>
 </head>
 <body>
@@ -479,6 +532,113 @@ footer a:hover { color: var(--accent); }
       <h2><span class="section-num">5</span> Corpus</h2>
       <div id="corpusList" class="muted">Loading…</div>
     </section>
+
+    <section class="card">
+      <h2><span class="section-num">6</span> Index statistics dashboard</h2>
+      <p class="muted" style="margin-top:0">Live counters recomputed from the inverted index whenever the stemmer setting changes.</p>
+      <div class="stats" id="idxStats" aria-live="polite"></div>
+    </section>
+
+    <div class="grid two">
+      <section class="card">
+        <h2><span class="section-num">7</span> Advanced query syntax</h2>
+        <p class="muted" style="margin-top:0">Everything the parser understands — click a row to try it.</p>
+        <div class="syntax-grid" id="syntaxGrid">
+          <div class="syntax-item" data-q="index AND (bm25 OR ranking) AND NOT compression" data-m="boolean"><code>term1 AND term2</code><span class="ex">intersection — both terms must appear</span></div>
+          <div class="syntax-item" data-q="bm25 OR tfidf" data-m="boolean"><code>term1 OR term2</code><span class="ex">union — either term matches</span></div>
+          <div class="syntax-item" data-q="ranking NOT compression" data-m="boolean"><code>NOT term</code><span class="ex">complement — exclude documents containing term</span></div>
+          <div class="syntax-item" data-q="(bm25 OR ranking) AND index" data-m="boolean"><code>( … )</code><span class="ex">grouping — NOT binds tightest, then AND, then OR</span></div>
+          <div class="syntax-item" data-q="posting lists" data-m="phrase"><code>phrase: a b c</code><span class="ex">exact adjacency using positional postings</span></div>
+          <div class="syntax-item" data-q="stemer" data-m="fuzzy"><code>fuzzy: mispell</code><span class="ex">edit-distance fallback when nothing matches exactly</span></div>
+          <div class="syntax-item" data-q="ranking documents" data-m="bm25"><code>plain terms</code><span class="ex">default BM25 bag-of-words ranking</span></div>
+          <div class="syntax-item" data-q="stopword removal" data-m="bm25"><code>implicit AND</code><span class="ex">adjacent plain terms in boolean mode intersect</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2><span class="section-num">8</span> IDF visualizer</h2>
+        <p class="muted" style="margin-top:0">Drag the document-frequency slider: textbook idf dives below zero past df &gt; N/2, Lucene's <code>1 + ln((N − df + 0.5)/(df + 0.5))</code>-style floor stays positive. Curve plotted against df for this corpus (N = <span id="idfN" class="mono">12</span>).</p>
+        <div class="row">
+          <div>
+            <label for="dfSlider">df (documents containing term) = <span id="dfV" class="mono">6</span> / <span id="dfMax" class="mono">12</span></label>
+            <input type="range" id="dfSlider" min="1" max="12" step="1" value="6">
+          </div>
+          <div>
+            <label for="tfSlider">term frequency in doc = <span id="tfV" class="mono">3</span></label>
+            <input type="range" id="tfSlider" min="1" max="20" step="1" value="3">
+          </div>
+        </div>
+        <canvas id="idfChart" class="idf-canvas" width="480" height="240" role="img" aria-label="IDF curves: textbook vs Lucene"></canvas>
+        <div class="stats" id="idfStats" style="margin-top:10px"></div>
+        <p class="muted" style="font-size:13px;margin-bottom:0">The tf slider shows the BM25 saturation numerator <span class="mono">tf·(k1+1)/(tf + k1·(1−b+b·dl/avgdl))</span> — value displayed live.</p>
+      </section>
+    </div>
+
+    <div class="grid two">
+      <section class="card">
+        <h2><span class="section-num">9</span> Porter stemmer steps</h2>
+        <p class="muted" style="margin-top:0">Type a word — each suffix rule application is shown in order, matching the stemmer running in search.</p>
+        <div class="row">
+          <div>
+            <label for="stemWord">Word</label>
+            <input id="stemWord" class="mono" value="relational" spellcheck="false">
+          </div>
+          <button class="primary" id="stemBtn">Stem</button>
+        </div>
+        <div class="stem-steps" id="stemSteps" aria-live="polite"></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="section-num">10</span> Typo tolerance</h2>
+        <p class="muted" style="margin-top:0">Fuzziness slider: how many edits away a vocabulary term may be. Match quality (1 − d/max(len)) shown per candidate.</p>
+        <div class="row typo-q">
+          <div>
+            <label for="typoWord">Misspelled query</label>
+            <input id="typoWord" class="mono" value="stemer" spellcheck="false">
+          </div>
+          <div>
+            <label for="fuzzSlider">max edit distance = <span id="fuzzV" class="mono">2</span></label>
+            <input type="range" id="fuzzSlider" min="0" max="4" step="1" value="2">
+          </div>
+          <button class="primary" id="typoBtn">Find matches</button>
+        </div>
+        <div id="typoOut" style="margin-top:10px" aria-live="polite"></div>
+        <div class="muted" style="font-size:13px;margin-top:6px">quality = 1 − distance / max(len(query), len(term)). Ties broken by df (higher wins).</div>
+      </section>
+    </div>
+
+    <div class="grid two">
+      <section class="card">
+        <h2><span class="section-num">11</span> Search performance</h2>
+        <p class="muted" style="margin-top:0">Time the query: postings scanned (sum of posting-list lengths touched), documents scored, wall-clock ms.</p>
+        <div class="row">
+          <div>
+            <label for="perfQuery">Query</label>
+            <input id="perfQuery" class="mono" value="ranking index bm25" spellcheck="false">
+          </div>
+          <button class="primary" id="perfBtn">Time it</button>
+        </div>
+        <div class="stats" id="perfStats" style="margin-top:10px"></div>
+        <canvas id="perfChart" class="perf-canvas" width="480" height="150" role="img" aria-label="Postings scanned per query term"></canvas>
+      </section>
+
+      <section class="card">
+        <h2><span class="section-num">12</span> Relevance feedback</h2>
+        <p class="muted" style="margin-top:0">Mark documents relevant to your query — Rocchio-style expansion suggests terms from those docs that are absent from the query.</p>
+        <div class="row">
+          <div>
+            <label for="fbQuery">Query</label>
+            <input id="fbQuery" class="mono" value="index compression" spellcheck="false">
+          </div>
+          <button class="primary" id="fbBtn">Load results</button>
+        </div>
+        <div id="fbList" style="margin-top:8px"></div>
+        <div id="fbSuggest" style="margin-top:8px">
+          <div class="muted" style="font-size:13px">Select relevant docs, then press Expand query.</div>
+        </div>
+        <button id="fbExpand" class="btn" style="margin-top:8px" disabled>Expand query</button>
+      </section>
+    </div>
 
     <footer>115 tests · Python 3.10–3.12 · standard library only · Built by <a href="https://github.com/umer-78">Umer Hashmi</a></footer>
   </div>
@@ -786,11 +946,16 @@ footer a:hover { color: var(--accent); }
         const { scores } = bm25(INDEX, qTerms, k1, b);
         const ranked = [...scores.entries()].map(([id, s]) => ({ id, score: s })).sort((a, b2) => b2.score - a.score);
         if (!ranked.length) html = '<div class="finding risk"><span class="kind">no results</span><div class="detail">No indexed term matched. Try another word.</div></div>';
-        else html = ranked.map((r, i) => {
+        else {
+          const topScore = ranked[0].score || 1;
+          html = ranked.map((r, i) => {
           const doc = CORPUS.find(d => d.id === r.id);
+          const pct = Math.max(3, Math.round(100 * r.score / topScore));
           return `<div class="hit"><span class="score">${fmt(r.score)}</span><div class="title">${i + 1}. ${esc(doc.title)}</div>
+            <div class="ranking-bar" title="relative score"><i style="width:${pct}%"></i><span>${pct}%</span></div>
             <div class="snippet">${highlight(doc.text.slice(0, 180) + '…', qTerms)}</div></div>`;
         }).join('');
+        }
         stats.innerHTML = `<span class="stat"><span class="k">terms</span><span class="v">${qTerms.length}</span></span>
           <span class="stat"><span class="k">docs scored</span><span class="v">${ranked.length}</span></span>
           <span class="stat"><span class="k">corpus</span><span class="v">${INDEX.postings.size} terms</span></span>`;
@@ -939,6 +1104,362 @@ footer a:hover { color: var(--accent); }
     explain();
     $('termLook').value = 'rank';
     lookupTerm();
+
+    // ============================================================
+    // ADVANCED FEATURES
+    // ============================================================
+    const NS2 = 'http://www.w3.org/2000/svg';
+
+    // --- 6. Index statistics dashboard ---
+    function renderIdxStats() {
+      const idx = buildIndex($('useStem').checked);
+      let postings = 0, tokens = 0;
+      for (const m of idx.postings.values()) postings += m.size;
+      for (const l of idx.docLen.values()) tokens += l;
+      const df1 = [...idx.postings.values()].filter(m => m.size === 1).length;
+      const stats = [
+        ['documents', idx.N],
+        ['distinct terms', idx.postings.size],
+        ['postings (term–doc pairs)', postings],
+        ['tokens indexed', tokens],
+        ['avg dl', fmt(idx.avgLen.value, 1)],
+        ['terms with df=1 (hapax)', df1],
+        ['postings / doc', fmt(postings / idx.N, 1)],
+        ['vocabulary ratio', fmt(100 * idx.postings.size / Math.max(tokens, 1), 1) + '%'],
+      ];
+      $('idxStats').innerHTML = stats.map(([k, v]) =>
+        `<span class="stat"><span class="k">${k}</span><span class="v">${v}</span></span>`).join('');
+      $('idfN').textContent = idx.N;
+      $('dfSlider').max = idx.N;
+      $('dfMax').textContent = idx.N;
+      drawIdf();
+    }
+
+    // --- syntax grid click-to-try ---
+    document.querySelectorAll('.syntax-item').forEach(item => {
+      item.addEventListener('click', () => {
+        $('query').value = item.dataset.q;
+        $('mode').value = item.dataset.m;
+        search();
+        document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      item.style.cursor = 'pointer';
+    });
+
+    // --- 7. IDF visualizer ---
+    function drawIdf() {
+      const canvas = $('idfChart');
+      const N = CORPUS.length;
+      const df = +$('dfSlider').value;
+      const tf = +$('tfSlider').value;
+      $('dfV').textContent = df;
+      $('tfV').textContent = tf;
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth || 480, h = 240;
+      canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.height = h + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const cs = getComputedStyle(document.documentElement);
+      const muted = cs.getPropertyValue('--muted').trim() || '#888';
+      const border = cs.getPropertyValue('--border').trim() || '#ddd';
+      const bad = cs.getPropertyValue('--bad').trim() || '#dc2626';
+      const good = cs.getPropertyValue('--good').trim() || '#059669';
+      const accent = cs.getPropertyValue('--accent').trim() || '#2563eb';
+      const pad = { l: 44, r: 12, t: 14, b: 28 };
+      const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+      const textbook = d => Math.log((N - d + 0.5) / (d + 0.5));
+      const lucene = d => Math.log(1 + (N - d + 0.5) / (d + 0.5));
+      const vals = [];
+      for (let d = 1; d <= N; d++) { vals.push(textbook(d), lucene(d)); }
+      const min = Math.min(...vals, -0.1), max = Math.max(...vals, 0.1);
+      const X = d => pad.l + ((d - 1) / Math.max(N - 1, 1)) * iw;
+      const Y = v => pad.t + (1 - (v - min) / (max - min)) * ih;
+      // grid + zero line
+      ctx.strokeStyle = border; ctx.fillStyle = muted; ctx.font = '11px ui-monospace, monospace'; ctx.lineWidth = 1;
+      for (let g = 0; g <= 4; g++) {
+        const v = min + ((max - min) * g) / 4, yy = Y(v);
+        ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(w - pad.r, yy); ctx.stroke();
+        ctx.textAlign = 'right'; ctx.fillText(v.toFixed(1), pad.l - 6, yy + 3);
+      }
+      if (min < 0 && max > 0) {
+        ctx.strokeStyle = muted; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(pad.l, Y(0)); ctx.lineTo(w - pad.r, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+      }
+      // curves
+      function curve(fn, color) {
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+        for (let d = 1; d <= N; d++) { const xx = X(d), yy = Y(fn(d)); d === 1 ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy); }
+        ctx.stroke();
+      }
+      curve(textbook, bad);
+      curve(lucene, good);
+      // marker at selected df
+      ctx.fillStyle = accent;
+      ctx.beginPath(); ctx.arc(X(df), Y(textbook(df)), 5, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(X(df), Y(lucene(df)), 5, 0, 7); ctx.fill();
+      ctx.strokeStyle = accent; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(X(df), pad.t); ctx.lineTo(X(df), h - pad.b); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = muted; ctx.textAlign = 'center';
+      ctx.fillText('df →', pad.l + iw / 2, h - 8);
+      // stats
+      const tb = textbook(df), lu = lucene(df);
+      const k1 = parseFloat($('k1').value), b = parseFloat($('b').value);
+      const idx = buildIndex($('useStem').checked);
+      const avgdl = idx.avgLen.value;
+      const dl = Math.round(avgdl);
+      const sat = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl / avgdl));
+      $('idfStats').innerHTML = `
+        <span class="stat"><span class="k">textbook idf</span><span class="v ${tb < 0 ? 'bad' : ''}">${fmt(tb)}</span></span>
+        <span class="stat"><span class="k">lucene idf</span><span class="v good">${fmt(lu)}</span></span>
+        <span class="stat"><span class="k">tf factor</span><span class="v accent">${fmt(sat)}</span></span>
+        <span class="stat"><span class="k">score ≈</span><span class="v">${fmt(lu * sat)}</span></span>`;
+    }
+
+    // --- 8. Porter stemmer steps (instrumented rules) ---
+    function stemTrace(word) {
+      const steps = [{ rule: 'input', out: word }];
+      let w = word;
+      if (w.length < 3) { steps.push({ rule: 'too short — unchanged', out: w }); return steps; }
+      const before = w;
+      if (w.endsWith('sses')) w = w.slice(0, -2);
+      else if (w.endsWith('ies') && w.length > 4) w = w.slice(0, -3);
+      else if (w.endsWith('ss') || w.endsWith('us') || w.endsWith('is')) { /* keep */ }
+      else if (w.endsWith('s') && w.length > 3) w = w.slice(0, -1);
+      if (w !== before) steps.push({ rule: 'step 1a (plurals)', out: w });
+      const b1 = w;
+      if (w.endsWith('y') && measure(w.slice(0, -1)) > 0) w = w.slice(0, -1) + 'i';
+      if (w !== b1) steps.push({ rule: 'step 1c (y→i)', out: w });
+      const rules = [
+        ['ational', 'ate'], ['tional', 'tion'], ['izer', 'ize'], ['ization', 'ize'],
+        ['ation', 'ate'], ['ator', 'ate'], ['alism', 'al'], ['iveness', 'ive'],
+        ['fulness', 'ful'], ['ousness', 'ous'], ['aliti', 'al'], ['iviti', 'ive'],
+        ['biliti', 'ble'], ['alize', 'al'], ['icate', ''], ['iciti', 'ic'],
+        ['ical', ''], ['ful', ''], ['ness', ''], ['ement', 'ment'], ['ment', ''],
+        ['ence', ''], ['ance', ''], ['able', ''], ['ible', ''], ['ant', ''],
+        ['ent', ''], ['ism', ''], ['ate', ''], ['iti', ''], ['ous', ''],
+        ['ive', ''], ['ize', ''], ['ing', ''], ['ed', ''], ['ion', ''], ['er', ''],
+      ];
+      const b2 = w;
+      for (const [suf, rep] of rules) {
+        if (suf === 'ion' && !/[st]$/.test(w.slice(0, -3))) continue;
+        if (w.endsWith(suf) && w.length - suf.length >= 2) {
+          const base = w.slice(0, -suf.length);
+          if (measure(base) > 1) { w = base + rep; steps.push({ rule: `rule -${suf} → ${rep || '∅'} (m(base)=${measure(base)}>1)`, out: w }); break; }
+        }
+      }
+      if (w !== b2 && !steps.some(s => s.rule.startsWith('rule'))) {
+        // suffix matched structurally but measure gate failed
+        for (const [suf] of rules) {
+          if (w.endsWith(suf) && w.length - suf.length >= 2) {
+            const base = w.slice(0, -suf.length);
+            steps.push({ rule: `rule -${suf} blocked (m(${base || "''"})=${measure(base)}≤1)`, out: w });
+            break;
+          }
+        }
+      }
+      const b3 = w;
+      if (w.endsWith('e') && measure(w.slice(0, -1)) > 1) w = w.slice(0, -1);
+      if (w !== b3) steps.push({ rule: 'final -e removal', out: w });
+      const b4 = w;
+      if (w.endsWith('ll') && measure(w.slice(0, -1)) > 1) w = w.slice(0, -1);
+      if (w !== b4) steps.push({ rule: 'final ll → l', out: w });
+      steps.push({ rule: 'stem', out: w, final: true });
+      return steps;
+    }
+    function runStemDemo() {
+      const word = ($('stemWord').value.trim().toLowerCase().match(/[a-z]+/) || [''])[0];
+      if (!word) { $('stemSteps').innerHTML = ''; return; }
+      const trace = stemTrace(word);
+      $('stemSteps').innerHTML = trace.map((s, i) =>
+        `${i ? '<span class="stem-arrow">→</span>' : ''}<span class="stem-step ${s.final ? 'final' : ''}" style="animation-delay:${i * 0.07}s" title="${esc(s.rule)}">${esc(s.out)}</span>`
+      ).join('') + `<span class="muted" style="font-size:12.5px;width:100%;margin-top:6px">${trace.map(s => esc(s.rule)).join(' · ')}</span>`;
+    }
+
+    // --- 9. Typo tolerance with quality ---
+    function runTypo() {
+      const raw = ($('typoWord').value.trim().toLowerCase().match(/[a-z]+/) || [''])[0];
+      const maxD = +$('fuzzSlider').value;
+      $('fuzzV').textContent = maxD;
+      if (!raw) { $('typoOut').innerHTML = ''; return; }
+      const idx = buildIndex($('useStem').checked);
+      const t = idx.useStem ? stem(raw) : raw;
+      const exact = idx.postings.has(t);
+      const cands = [];
+      for (const vocab of idx.postings.keys()) {
+        const d = levenshtein(t, vocab);
+        if (d <= maxD) {
+          const quality = 1 - d / Math.max(t.length, vocab.length, 1);
+          cands.push({ term: vocab, d, quality, df: idx.postings.get(vocab).size, exact: vocab === t });
+        }
+      }
+      cands.sort((a, b) => a.d - b.d || b.df - a.df);
+      const top = cands.slice(0, 8);
+      if (!top.length) {
+        $('typoOut').innerHTML = `<div class="finding risk"><span class="kind">no match</span><div class="detail">Nothing within ${maxD} edit(s) of '${esc(t)}' — raise the fuzziness slider.</div></div>`;
+        return;
+      }
+      const rows = top.map(c => `
+        <div class="fb-doc ${c.exact ? 'relevant' : ''}">
+          <span class="mono" style="min-width:110px;font-weight:${c.exact ? 700 : 500}">${esc(c.term)}</span>
+          <span class="badge ${c.d === 0 ? 'ok' : c.d === 1 ? 'warn' : 'risk'}">${c.d === 0 ? 'exact' : c.d + ' edit' + (c.d === 1 ? '' : 's')}</span>
+          <div class="qual-meter" style="flex:1"><i style="width:${Math.round(c.quality * 100)}%"></i></div>
+          <span class="mono" style="font-size:12px;min-width:88px;text-align:right">q=${c.quality.toFixed(2)} · df=${c.df}</span>
+        </div>`).join('');
+      const best = top[0];
+      $('typoOut').innerHTML = rows +
+        `<div class="finding ${best.exact ? 'ok' : 'info'}"><span class="kind">${best.exact ? 'exact hit' : 'best fuzzy'}</span><div class="detail">Chosen term '<b>${esc(best.term)}</b>' (quality ${best.quality.toFixed(2)}, df=${best.df}). ${exact ? 'Query matches the index exactly.' : `Fuzzy search maps '${esc(raw)}' → '${esc(best.term)}'.`}</div></div>`;
+    }
+
+    // --- 10. Search performance ---
+    function runPerf() {
+      const q = $('perfQuery').value.trim();
+      const mode = 'bm25';
+      const useStem = $('useStem').checked;
+      const qTerms = tokenize(q).filter(t => !STOPWORDS.has(t)).map(t => useStem ? stem(t) : t);
+      // warm-up
+      let idx = buildIndex(useStem);
+      bm25(idx, qTerms, 1.2, 0.75);
+      const reps = 50;
+      const t0 = performance.now();
+      let scanned = 0, scored = 0;
+      for (let r = 0; r < reps; r++) {
+        idx = buildIndex(useStem);
+        for (const qt of qTerms) {
+          const p = idx.postings.get(qt);
+          if (p) { scanned += p.size; scored += p.size; }
+        }
+        bm25(idx, qTerms, 1.2, 0.75);
+      }
+      const ms = (performance.now() - t0) / reps;
+      scanned = Math.round(scanned / reps); scored = Math.round(scored / reps);
+      const missing = qTerms.filter(t => !idx.postings.has(t)).length;
+      $('perfStats').innerHTML = `
+        <span class="stat"><span class="k">wall time</span><span class="v accent">${ms.toFixed(3)} ms</span></span>
+        <span class="stat"><span class="k">postings scanned</span><span class="v">${scanned.toLocaleString()}</span></span>
+        <span class="stat"><span class="k">docs scored</span><span class="v">${scored.toLocaleString()}</span></span>
+        <span class="stat"><span class="k">terms (missing)</span><span class="v ${missing ? 'bad' : 'good'}">${qTerms.length} (${missing})</span></span>`;
+      drawPerf(qTerms, idx);
+    }
+    function drawPerf(qTerms, idx) {
+      const canvas = $('perfChart');
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth || 480, h = 150;
+      canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.height = h + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const cs = getComputedStyle(document.documentElement);
+      const muted = cs.getPropertyValue('--muted').trim() || '#888';
+      const accent = cs.getPropertyValue('--accent').trim() || '#2563eb';
+      const good = cs.getPropertyValue('--good').trim() || '#059669';
+      if (!qTerms.length) return;
+      const dfs = qTerms.map(t => (idx.postings.get(t) || new Map()).size);
+      const maxDf = Math.max(...dfs, 1);
+      const pad = { l: 40, r: 12, t: 12, b: 34 };
+      const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+      const bw = iw / qTerms.length;
+      ctx.font = '11px ui-monospace, monospace';
+      qTerms.forEach((t, i) => {
+        const df = dfs[i];
+        const bh = (df / maxDf) * ih;
+        const x = pad.l + i * bw + bw * 0.15;
+        ctx.fillStyle = df === 0 ? (cs.getPropertyValue('--bad').trim() || '#dc2626') : accent;
+        ctx.globalAlpha = 0.85;
+        ctx.fillRect(x, pad.t + ih - bh, bw * 0.7, bh);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = muted; ctx.textAlign = 'center';
+        ctx.fillText(t.slice(0, 8), x + bw * 0.35, h - 18);
+        ctx.fillStyle = cs.getPropertyValue('--text').trim() || '#111';
+        ctx.fillText(String(df), x + bw * 0.35, pad.t + ih - bh - 5);
+      });
+      ctx.fillStyle = muted; ctx.textAlign = 'left';
+      ctx.fillText('postings scanned per term (df)', pad.l, h - 4);
+    }
+
+    // --- 11. Relevance feedback (Rocchio-lite) ---
+    let fbResults = [];
+    function loadFb() {
+      const q = $('fbQuery').value.trim();
+      const useStem = $('useStem').checked;
+      const idx = buildIndex(useStem);
+      const qTerms = tokenize(q).filter(t => !STOPWORDS.has(t)).map(t => useStem ? stem(t) : t);
+      const { scores } = bm25(idx, qTerms, 1.2, 0.75);
+      fbResults = [...scores.entries()].map(([id, s]) => ({ id, score: s })).sort((a, b) => b.score - a.score).slice(0, 8);
+      $('fbList').innerHTML = fbResults.map((r, i) => {
+        const doc = CORPUS.find(d => d.id === r.id);
+        return `<label class="fb-doc" data-id="${esc(r.id)}">
+          <input type="checkbox" class="fb-check">
+          <span style="flex:1">${i + 1}. <b>${esc(doc.title)}</b> <span class="muted mono" style="font-size:12px">${fmt(r.score)}</span></span>
+        </label>`;
+      }).join('') || '<div class="muted" style="font-size:13px">No results for that query.</div>';
+      $('fbSuggest').innerHTML = '<div class="muted" style="font-size:13px">Select relevant docs, then press Expand query.</div>';
+      $('fbExpand').disabled = true;
+      document.querySelectorAll('.fb-doc').forEach(el => {
+        el.addEventListener('click', (e) => {
+          if (e.target.tagName !== 'INPUT') { const cb = el.querySelector('input'); cb.checked = !cb.checked; }
+          el.classList.toggle('relevant', el.querySelector('input').checked);
+          $('fbExpand').disabled = !document.querySelector('.fb-doc.relevant');
+        });
+      });
+    }
+    function expandQuery() {
+      const q = $('fbQuery').value.trim();
+      const useStem = $('useStem').checked;
+      const idx = buildIndex(useStem);
+      const qTerms = new Set(tokenize(q).filter(t => !STOPWORDS.has(t)).map(t => useStem ? stem(t) : t));
+      const rel = [...document.querySelectorAll('.fb-doc.relevant')].map(el => el.dataset.id);
+      if (!rel.length) return;
+      // Rocchio-lite: score terms by sum of tf-idf in relevant docs, minus non-relevant shown
+      const termScores = new Map();
+      for (const docId of rel) {
+        for (const [term, pm] of idx.postings) {
+          const p = pm.get(docId);
+          if (!p) continue;
+          const contrib = idf(idx, term) * p.tf;
+          termScores.set(term, (termScores.get(term) || 0) + contrib);
+        }
+      }
+      // penalise terms already in query lightly by excluding them from suggestions
+      const suggestions = [...termScores.entries()]
+        .filter(([t]) => !qTerms.has(t))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8);
+      $('fbSuggest').innerHTML = `
+        <div class="muted" style="font-size:13px">${rel.length} relevant doc(s) · suggested additions (idf·tf summed):</div>
+        <div class="suggest-box">${suggestions.map(([t, s]) =>
+          `<button data-t="${esc(t)}" title="weight ${fmt(s)}">${esc(t)} <span class="muted" style="font-weight:400">${fmt(s, 2)}</span></button>`).join('')}</div>`;
+      document.querySelectorAll('.suggest-box button').forEach(b => {
+        b.addEventListener('click', () => {
+          $('fbQuery').value = ($('fbQuery').value + ' ' + b.dataset.t).trim();
+          loadFb();
+        });
+      });
+    }
+
+    // wire advanced controls
+    $('dfSlider').addEventListener('input', drawIdf);
+    $('tfSlider').addEventListener('input', drawIdf);
+    $('k1').addEventListener('input', drawIdf);
+    $('b').addEventListener('input', drawIdf);
+    $('stemBtn').addEventListener('click', runStemDemo);
+    $('stemWord').addEventListener('keydown', e => { if (e.key === 'Enter') runStemDemo(); });
+    $('typoBtn').addEventListener('click', runTypo);
+    $('typoWord').addEventListener('keydown', e => { if (e.key === 'Enter') runTypo(); });
+    $('fuzzSlider').addEventListener('input', () => { $('fuzzV').textContent = $('fuzzSlider').value; runTypo(); });
+    $('perfBtn').addEventListener('click', runPerf);
+    $('perfQuery').addEventListener('keydown', e => { if (e.key === 'Enter') runPerf(); });
+    $('fbBtn').addEventListener('click', loadFb);
+    $('fbExpand').addEventListener('click', expandQuery);
+    $('useStem').addEventListener('change', () => { renderIdxStats(); runTypo(); });
+    window.addEventListener('resize', () => { drawIdf(); });
+
+    // init advanced
+    renderIdxStats();
+    runStemDemo();
+    runTypo();
+    runPerf();
+    loadFb();
   </script>
 </body>
 </html>
