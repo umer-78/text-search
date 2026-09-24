@@ -1,5 +1,9 @@
 # textsearch
 
+[![CI](https://github.com/umer-78/text-search/actions/workflows/ci.yml/badge.svg)](https://github.com/umer-78/text-search/actions/workflows/ci.yml)
+
+**Live demo:** https://umer-78.github.io/text-search/
+
 A search engine written from scratch in Python: an inverted index that records
 positions, BM25 ranking, phrase and boolean queries, a Porter stemmer and
 edit-distance typo tolerance. No dependencies — not even NumPy. Every posting
