@@ -7,3 +7,5 @@ build/
 dist/
 .venv/
 index/
+
+.DS_Store
