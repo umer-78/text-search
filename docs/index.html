@@ -425,9 +425,22 @@ footer a:hover { color: var(--accent); }
 .qual-meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--bad), var(--warn), var(--good)); transition: width 0.5s var(--ease); border-radius: 99px; }
 mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; animation: hlPop 0.3s var(--ease); }
 @keyframes hlPop { from { background: var(--accent); color: #fff; } }
-  </style>
+  
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+</style>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <main id="main">
+
   <div class="wrap">
     <header class="top">
       <div class="brand">
@@ -446,11 +459,11 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
       <h2><span class="section-num">1</span> Search</h2>
       <p class="muted" style="margin-top:0">Twelve documents about information retrieval. Tokens are lowercased, stripped of stop words and optionally stemmed; ranked with BM25 (Lucene idf).</p>
       <div class="presets">
-        <button data-q="ranking documents by relevance">ranking documents</button>
-        <button data-q="posting lists">phrase: posting lists</button>
-        <button data-q="index AND (bm25 OR ranking) AND NOT compression">boolean query</button>
-        <button data-q="stemer">fuzzy: stemer</button>
-        <button data-q="saturating length normalisation">explain terms</button>
+        <button data-q="ranking documents by relevance" type="button">ranking documents</button>
+        <button data-q="posting lists" type="button">phrase: posting lists</button>
+        <button data-q="index AND (bm25 OR ranking) AND NOT compression" type="button">boolean query</button>
+        <button data-q="stemer" type="button">fuzzy: stemer</button>
+        <button data-q="saturating length normalisation" type="button">explain terms</button>
       </div>
       <div class="row">
         <div>
@@ -466,7 +479,7 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
             <option value="fuzzy">fuzzy (edit distance)</option>
           </select>
         </div>
-        <button class="primary" id="searchBtn">Search</button>
+        <button class="primary" id="searchBtn" type="button">Search</button>
       </div>
       <div class="row" style="margin-top:10px">
         <div>
@@ -494,7 +507,7 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
             <label for="expQuery">Query terms</label>
             <input id="expQuery" class="mono" value="saturating length" spellcheck="false">
           </div>
-          <button class="primary" id="expBtn">Explain</button>
+          <button class="primary" id="expBtn" type="button">Explain</button>
         </div>
         <div id="expOut" class="result-box">Press Explain.</div>
       </section>
@@ -507,7 +520,7 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
             <label for="termLook">Term</label>
             <input id="termLook" class="mono" value="rank" spellcheck="false">
           </div>
-          <button class="primary" id="termBtn">Look up</button>
+          <button class="primary" id="termBtn" type="button">Look up</button>
         </div>
         <div id="termOut" class="result-box">Press Look up.</div>
       </section>
@@ -583,7 +596,7 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
             <label for="stemWord">Word</label>
             <input id="stemWord" class="mono" value="relational" spellcheck="false">
           </div>
-          <button class="primary" id="stemBtn">Stem</button>
+          <button class="primary" id="stemBtn" type="button">Stem</button>
         </div>
         <div class="stem-steps" id="stemSteps" aria-live="polite"></div>
       </section>
@@ -600,7 +613,7 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
             <label for="fuzzSlider">max edit distance = <span id="fuzzV" class="mono">2</span></label>
             <input type="range" id="fuzzSlider" min="0" max="4" step="1" value="2">
           </div>
-          <button class="primary" id="typoBtn">Find matches</button>
+          <button class="primary" id="typoBtn" type="button">Find matches</button>
         </div>
         <div id="typoOut" style="margin-top:10px" aria-live="polite"></div>
         <div class="muted" style="font-size:13px;margin-top:6px">quality = 1 − distance / max(len(query), len(term)). Ties broken by df (higher wins).</div>
@@ -616,7 +629,7 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
             <label for="perfQuery">Query</label>
             <input id="perfQuery" class="mono" value="ranking index bm25" spellcheck="false">
           </div>
-          <button class="primary" id="perfBtn">Time it</button>
+          <button class="primary" id="perfBtn" type="button">Time it</button>
         </div>
         <div class="stats" id="perfStats" style="margin-top:10px"></div>
         <canvas id="perfChart" class="perf-canvas" width="480" height="150" role="img" aria-label="Postings scanned per query term"></canvas>
@@ -630,13 +643,13 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
             <label for="fbQuery">Query</label>
             <input id="fbQuery" class="mono" value="index compression" spellcheck="false">
           </div>
-          <button class="primary" id="fbBtn">Load results</button>
+          <button class="primary" id="fbBtn" type="button">Load results</button>
         </div>
         <div id="fbList" style="margin-top:8px"></div>
         <div id="fbSuggest" style="margin-top:8px">
           <div class="muted" style="font-size:13px">Select relevant docs, then press Expand query.</div>
         </div>
-        <button id="fbExpand" class="btn" style="margin-top:8px" disabled>Expand query</button>
+        <button id="fbExpand" class="btn" style="margin-top:8px" disabled type="button">Expand query</button>
       </section>
     </div>
 
@@ -1428,7 +1441,7 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
       $('fbSuggest').innerHTML = `
         <div class="muted" style="font-size:13px">${rel.length} relevant doc(s) · suggested additions (idf·tf summed):</div>
         <div class="suggest-box">${suggestions.map(([t, s]) =>
-          `<button data-t="${esc(t)}" title="weight ${fmt(s)}">${esc(t)} <span class="muted" style="font-weight:400">${fmt(s, 2)}</span></button>`).join('')}</div>`;
+          `<button data-t="${esc(t)}" title="weight ${fmt(s)}" type="button">${esc(t)} <span class="muted" style="font-weight:400">${fmt(s, 2)}</span></button>`).join('')}</div>`;
       document.querySelectorAll('.suggest-box button').forEach(b => {
         b.addEventListener('click', () => {
           $('fbQuery').value = ($('fbQuery').value + ' ' + b.dataset.t).trim();
@@ -1461,5 +1474,7 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
     runPerf();
     loadFb();
   </script>
-</body>
+
+  </main>
+  </body>
 </html>
