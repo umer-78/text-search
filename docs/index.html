@@ -451,6 +451,19 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
 @media (prefers-color-scheme: dark) { :root { --muted: #9aa1b3; } }
 .hit mark, mark.hl { color: var(--text); }
 </style>
+<!-- motion-kit:head v1 -->
+<style>
+/* The skip link was added to every page without a style, so it sat visible in the top corner. Hidden until focused, as intended. */
+.skip-link { position: absolute; left: 12px; top: -64px; z-index: 1000; padding: 8px 14px; border-radius: 8px; background: var(--accent, #2563eb); color: #fff !important; font-weight: 600; text-decoration: none; transition: top .15s ease; }
+.skip-link:focus { top: 12px; }
+/* The generic button:hover rule is as specific as the primary one and comes first, so it
+   replaced the primary gradient with a flat pale fill (white text on light grey). */
+[data-mk-bg].primary:hover:not(:disabled) { background-image: var(--mk-primary-bg) !important; border-color: transparent; }
+html.mk-pre header.top, html.mk-pre main section, html.mk-pre section.card, html.mk-pre .cards > li { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { html.mk-pre * { opacity: 1 !important; } }
+</style>
+<script>(function(){try{if(!(matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)){var r=document.documentElement;r.classList.add('mk-pre');setTimeout(function(){r.classList.remove('mk-pre')},2200)}}catch(e){}})();</script>
+<!-- /motion-kit:head -->
 </head>
 <body>
   <noscript><p style="margin:16px;padding:12px 16px;border-radius:8px;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;font-family:system-ui,sans-serif">This interactive demo requires JavaScript. Please enable it to run the demo in your browser.</p></noscript>
@@ -1602,5 +1615,99 @@ mark.hl { background: color-mix(in srgb, var(--accent) 25%, transparent); color:
       window.addEventListener('resize', soon);
     })();
   </script>
-  </body>
+  
+<!-- motion-kit:body v1 -->
+<script src="https://cdn.jsdelivr.net/npm/motion@13.4.4/dist/motion.js" defer crossorigin="anonymous"></script>
+<script>
+/* Motion layer (motion.dev, the library behind Framer Motion), built from the
+   same component ideas as the Magic UI set on 21st.dev: Blur Fade reveals, a
+   Number Ticker for changing figures, a press spring for buttons and an
+   animated list for new results. Progressive: without the library, or with
+   reduced motion, the page is exactly as before. */
+(function () {
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var root = document.documentElement;
+  var EASE = [0.16, 1, 0.3, 1];
+  function keepPrimaryColour() {
+    document.querySelectorAll('button.primary, .btn.primary').forEach(function (b) {
+      var bg = getComputedStyle(b).backgroundImage;
+      if (bg && bg !== 'none') { b.style.setProperty('--mk-primary-bg', bg); b.setAttribute('data-mk-bg', ''); }
+    });
+  }
+  function start() {
+    keepPrimaryColour();
+    var M = window.Motion;
+    if (reduce || !M || !M.animate) { root.classList.remove('mk-pre'); return; }
+    var animate = M.animate, inView = M.inView, stagger = M.stagger;
+    var seen = new WeakSet();
+    function blurFade(el, delay) {
+      // Elements that already have a CSS entrance animation keep it; running
+      // both made them fade in, vanish and fade in again.
+      if (seen.has(el) || (el.className && /\banimate-in\b/.test(el.className)) || getComputedStyle(el).animationName !== 'none') return;
+      seen.add(el);
+      el.style.opacity = '0';
+      animate(el, { opacity: [0, 1], transform: ['translateY(14px)', 'translateY(0px)'], filter: ['blur(6px)', 'blur(0px)'] },
+        { duration: 0.6, delay: delay || 0, ease: EASE }).finished.then(function () { el.style.filter = ''; el.style.transform = ''; });
+    }
+    // 1. Blur Fade: header first, then each card as it scrolls into view.
+    var top = document.querySelectorAll('header.top, header.hero .hero-inner > *, .page-head');
+    top.forEach(function (el, i) { blurFade(el, i * 0.06); });
+    var cards = document.querySelectorAll('main section, section.card, .card, .cards > li, [data-reveal]');
+    var inFirstScreen = [];
+    cards.forEach(function (el) {
+      if (el.closest('header') || el.parentElement && el.parentElement.closest('.card')) return;
+      var r = el.getBoundingClientRect();
+      if (r.top < innerHeight) inFirstScreen.push(el);
+      else if (getComputedStyle(el).animationName === 'none') { el.style.opacity = '0'; inView(el, function () { blurFade(el, 0); }, { amount: 0.12 }); }
+    });
+    inFirstScreen.forEach(function (el, i) { blurFade(el, 0.12 + i * 0.07); });
+    root.classList.remove('mk-pre');
+
+    // 2. Number Ticker: figures in stat tiles count to their new value.
+    var NUM = /-?\d[\d,]*(?:\.\d+)?/;
+    function tick(el, from, to, text) {
+      var m = text.match(NUM), dec = (m[0].split('.')[1] || '').length, pre = text.slice(0, m.index), post = text.slice(m.index + m[0].length);
+      var comma = m[0].indexOf(',') >= 0;
+      el.__mkLock = true;
+      if (el.__mkAnim) el.__mkAnim.stop();
+      el.__mkAnim = animate(from, to, { duration: 0.8, ease: EASE, onUpdate: function (v) {
+        var s = comma ? v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) : v.toFixed(dec);
+        el.textContent = pre + s + post;
+      } });
+      el.__mkAnim.finished.then(function () { el.textContent = text; el.__mkLock = false; });
+    }
+    function num(t) { var m = t && t.match(NUM); return m ? parseFloat(m[0].replace(/,/g, '')) : null; }
+    var tickers = document.querySelectorAll('.stat .v, .stats .v, .stat-value, [data-ticker]');
+    tickers.forEach(function (el) {
+      el.__mkLast = num(el.textContent);
+      new MutationObserver(function () {
+        if (el.__mkLock) return;
+        var text = el.textContent, to = num(text), from = el.__mkLast;
+        el.__mkLast = to;
+        if (to === null || from === null || from === to || el.children.length) return;
+        tick(el, from, to, text);
+      }).observe(el, { childList: true, characterData: true, subtree: true });
+    });
+
+    // 3. Press spring on every button.
+    document.addEventListener('pointerdown', function (e) {
+      var b = e.target.closest && e.target.closest('button, .btn, [role="button"]');
+      if (b && !b.disabled) animate(b, { transform: ['scale(1)', 'scale(0.96)', 'scale(1)'] }, { duration: 0.28, ease: EASE });
+    }, { passive: true });
+
+    // 4. Animated list: new results slide in instead of popping.
+    var lists = document.querySelectorAll('main ul, main ol, main tbody, .results, [data-animate-list]');
+    lists.forEach(function (list) {
+      new MutationObserver(function (muts) {
+        var added = [];
+        muts.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1 && added.length < 24) added.push(n); }); });
+        if (added.length) animate(added, { opacity: [0, 1], transform: ['translateY(8px)', 'translateY(0px)'] }, { duration: 0.35, delay: stagger(0.03), ease: EASE });
+      }).observe(list, { childList: true });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+</script>
+<!-- /motion-kit:body -->
+</body>
 </html>
