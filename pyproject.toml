@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "textsearch"
+name = "text-search"
 version = "1.0.0"
-description = "A search engine from scratch: inverted index with positions, BM25, phrase and boolean queries, Porter stemming and typo tolerance."
+description = "A search engine from scratch in Python: inverted index with positions, BM25, phrase and boolean queries, Porter stemming and typo tolerance. No dependencies."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Umer Hashmi" }]

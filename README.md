@@ -1,4 +1,4 @@
-# textsearch
+# textsearch: full-text search engine
 
 [![CI](https://github.com/umer-78/text-search/actions/workflows/ci.yml/badge.svg)](https://github.com/umer-78/text-search/actions/workflows/ci.yml)
 

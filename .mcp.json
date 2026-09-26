@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "magicui": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@magicuidesign/mcp@2.0.0"]
-    }
-  }
-}
