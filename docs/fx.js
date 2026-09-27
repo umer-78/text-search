@@ -96,14 +96,137 @@ const ICON = {
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>',
   link: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></svg>',
   up: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
+  reset: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 3.8v5.1h5.1"/></svg>',
 };
+let say = () => {};
+
+// ── Reset ────────────────────────────────────────────────────────
+// Every form control is remembered as it was just before the first time anyone
+// touched the page (controls added later, as they appear). The dock's reset
+// button, and a Reset button beside any group of two or more controls that has
+// no reset of its own, put them back and fire the same input and change events
+// a person would, so the page redraws. A page with more state than its controls
+// can listen for `fx:reset` on window.
+const CONTROL = 'input:not([type=hidden]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=image]), select, textarea';
+const RESETISH = /\b(reset|clear|restore|defaults?|start over|new game|restart)\b/i;
+const originals = new Map();
+const resetButtons = [];
+let armed = false;
+const isControl = (el) => el instanceof Element && el.matches(CONTROL) && !el.closest('.fx-dock, [data-fx-noreset]');
+const shown = (el) => el.getClientRects().length > 0;
+function snap(el) {
+  if (el.type === 'checkbox' || el.type === 'radio') return el.checked;
+  if (el.tagName === 'SELECT' && el.multiple) return [...el.options].map((o) => o.selected).join();
+  return el.value;
+}
+function remember(root) {
+  if (!root || root.nodeType !== 1) return;
+  for (const el of [root, ...root.querySelectorAll(CONTROL)]) if (isControl(el) && !originals.has(el)) originals.set(el, snap(el));
+}
+function arm() {
+  if (armed) return;
+  armed = true;
+  remember(document.body);
+}
+const dirty = (el) => el.isConnected && snap(el) !== originals.get(el);
+function syncResets() {
+  const changed = [...originals.keys()].filter(dirty);
+  for (const { btn, scope } of resetButtons) btn.disabled = !changed.some((el) => scope.contains(el));
+  const dockBtn = document.querySelector('.fx-dock [data-fx="reset"]');
+  if (dockBtn) {
+    dockBtn.classList.toggle('off', !document.querySelector(CONTROL));
+    dockBtn.setAttribute('aria-disabled', String(!changed.length));
+  }
+}
+let syncTimer = 0;
+const syncSoon = () => { clearTimeout(syncTimer); syncTimer = setTimeout(syncResets, 30); };
+function restore(scope) {
+  arm();
+  const pool = [...originals.keys()].filter((el) => {
+    if (!el.isConnected) { originals.delete(el); return false; }
+    return !scope || scope.contains(el);
+  });
+  // choices first, typed text last: a select's handler may rewrite a text box (a preset query, say),
+  // and the text box should end where it started too
+  const typed = (el) => (el.tagName === 'SELECT' || /^(checkbox|radio|range)$/.test(el.type) ? 0 : 1);
+  pool.sort((a, b) => typed(a) - typed(b));
+  let count = 0;
+  for (const el of pool) {
+    if (!dirty(el)) continue;
+    const value = originals.get(el);
+    if (el.type === 'checkbox' || el.type === 'radio') el.checked = value;
+    else if (el.tagName === 'SELECT' && el.multiple) { const on = value.split(','); [...el.options].forEach((o, i) => { o.selected = on[i] === 'true'; }); }
+    else if (el.tagName === 'SELECT' && ![...el.options].some((o) => o.value === value)) continue; // its options were replaced
+    else el.value = value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    count++;
+  }
+  dispatchEvent(new CustomEvent('fx:reset', { detail: { scope: scope || null, count } }));
+  syncSoon();
+  return count;
+}
+// Previous and Next beside a select that browses items (opt in with data-fx-step), with the position.
+function steppers() {
+  for (const sel of document.querySelectorAll('select[data-fx-step]:not([data-fx-stepped])')) {
+    sel.dataset.fxStepped = '1';
+    const name = (document.querySelector(`label[for="${sel.id}"]`)?.textContent.trim() || 'option').toLowerCase();
+    const wrap = document.createElement('span');
+    wrap.className = 'fx-step';
+    wrap.innerHTML = `<button type="button" data-d="-1" aria-label="Previous ${name}" title="Previous ${name}">‹</button><span class="fx-step-pos" aria-live="polite"></span><button type="button" data-d="1" aria-label="Next ${name}" title="Next ${name}">›</button>`;
+    sel.after(wrap);
+    const pos = wrap.querySelector('.fx-step-pos');
+    const show = () => { pos.textContent = sel.options.length ? `${sel.selectedIndex + 1} / ${sel.options.length}` : ''; };
+    wrap.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b || !sel.options.length) return;
+      arm();
+      sel.selectedIndex = (sel.selectedIndex + Number(b.dataset.d) + sel.options.length) % sel.options.length;
+      sel.dispatchEvent(new Event('input', { bubbles: true }));
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    sel.addEventListener('change', show);
+    new MutationObserver(show).observe(sel, { childList: true, subtree: true });
+    show();
+  }
+}
+const resetMessage = (n) => (n ? `Reset ${n} control${n === 1 ? '' : 's'}` : 'Nothing to reset yet');
+function inlineResets() {
+  for (const scope of document.querySelectorAll('main section, main form, main .card, main .panel, body > section')) {
+    if (scope.dataset.fxReset || scope.closest('[data-fx-noreset], .fx-hero, header, nav, footer')) continue;
+    const controls = [...scope.querySelectorAll(CONTROL)].filter((el) => isControl(el) && shown(el));
+    if (controls.length < 2) continue;
+    // the innermost block with the controls gets the button, not every block around it
+    if ([...scope.querySelectorAll('section, form, .card, .panel')].some((inner) => [...inner.querySelectorAll(CONTROL)].filter(shown).length >= 2)) continue;
+    scope.dataset.fxReset = 'own';
+    const labels = [...scope.querySelectorAll('button, input[type=reset], [role=button]')].map((b) => b.textContent || b.value || b.getAttribute('aria-label') || '');
+    if (labels.some((t) => RESETISH.test(t))) continue;
+    scope.dataset.fxReset = 'added';
+    let common = controls[0].parentElement;
+    while (common && !controls.every((c) => common.contains(c))) common = common.parentElement;
+    let anchor = controls[controls.length - 1];
+    while (anchor.parentElement && anchor.parentElement !== common) anchor = anchor.parentElement;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'fx-reset';
+    btn.disabled = true;
+    const heading = scope.querySelector('h2, h3')?.textContent.trim();
+    btn.title = 'Put these controls back to how the page started';
+    if (heading) btn.setAttribute('aria-label', `Reset the controls in ${heading.slice(0, 60)}`);
+    btn.innerHTML = `${ICON.reset}<span>Reset</span>`;
+    btn.addEventListener('click', () => say(resetMessage(restore(scope))));
+    anchor.after(btn);
+    resetButtons.push({ btn, scope });
+  }
+  syncResets();
+}
 function dock() {
   const bar = document.createElement('div');
   bar.className = 'fx-dock';
   bar.setAttribute('role', 'toolbar');
   bar.setAttribute('aria-label', 'Page controls');
   const button = (name, label, key) => `<button type="button" data-fx="${name}" aria-label="${label}" title="${label}${key ? ` (${key})` : ''}"></button>`;
-  bar.innerHTML = button('theme', 'Switch theme', 'T') + button('motion', 'Pause motion', 'M') + button('share', 'Copy link to this page') + button('top', 'Back to top');
+  bar.innerHTML = button('reset', 'Reset the controls on this page') + button('theme', 'Switch theme', 'T') + button('motion', 'Pause motion', 'M') + button('share', 'Copy link to this page') + button('top', 'Back to top');
   const toast = document.createElement('div');
   toast.className = 'fx-toast';
   toast.setAttribute('role', 'status');
@@ -118,10 +241,11 @@ function dock() {
     q('motion').setAttribute('aria-pressed', String(still));
     q('motion').title = `${still ? 'Play' : 'Pause'} motion (M)`;
     q('share').innerHTML = ICON.link;
+    q('reset').innerHTML = ICON.reset;
     q('top').innerHTML = ICON.up;
   };
   let hide = 0;
-  const say = (text) => { toast.textContent = text; toast.classList.add('on'); clearTimeout(hide); hide = setTimeout(() => toast.classList.remove('on'), 1800); };
+  say = (text) => { toast.textContent = text; toast.classList.add('on'); clearTimeout(hide); hide = setTimeout(() => toast.classList.remove('on'), 1800); };
   const act = {
     theme() { const next = isDark() ? 'light' : 'dark'; applyTheme(next === (systemDark() ? 'dark' : 'light') ? null : next); store.set('fx-theme', doc.dataset.theme || null); paint(); say(`${isDark() ? 'Dark' : 'Light'} theme`); },
     motion() { setStill(!doc.classList.contains('fx-still')); paint(); say(doc.classList.contains('fx-still') ? 'Motion paused' : 'Motion on'); },
@@ -130,6 +254,7 @@ function dock() {
       try { if (navigator.share && !fine) { await navigator.share({ title: document.title, url }); return; } await navigator.clipboard.writeText(url); say('Link copied'); } catch { say(url); }
     },
     top() { scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); },
+    reset() { say(resetMessage(restore())); },
   };
   bar.addEventListener('click', (e) => { const b = e.target.closest('button[data-fx]'); if (b) act[b.dataset.fx](); });
   addEventListener('keydown', (e) => {
@@ -264,8 +389,18 @@ function start() {
   nav();
   enhance();
   pointer();
+  // the page's starting state is whatever it shows the moment someone first reaches for it
+  for (const type of ['pointerdown', 'keydown', 'focusin']) document.addEventListener(type, arm, true);
+  for (const type of ['input', 'change', 'click']) document.addEventListener(type, syncSoon, true);
+  steppers();
+  inlineResets();
+  addEventListener('load', () => setTimeout(inlineResets, 400));
   let t = 0;
-  new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => enhance(), 60); }).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver((muts) => {
+    if (armed) for (const m of muts) m.addedNodes.forEach(remember);
+    clearTimeout(t);
+    t = setTimeout(() => { enhance(); steppers(); inlineResets(); }, 60);
+  }).observe(document.body, { childList: true, subtree: true });
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
