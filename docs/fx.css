@@ -1,0 +1,140 @@
+/* fx: the motion layer shared by every demo. Aurora background, scroll progress, a 3D hero,
+   glass navigation, blur-in reveals, spotlight and tilt cards, shimmer buttons, gradient titles.
+   Additive: pages keep their own layout, and reduced motion gets a still, fully visible page. */
+:root { --fx-2: #06b6d4; --fx-3: #f59e0b; --fx-ease: cubic-bezier(.16, 1, .3, 1); --fx-line: color-mix(in srgb, var(--text, #111) 11%, transparent); }
+body { isolation: isolate; }
+
+/* aurora: three slow, blurred colour fields and a dot grid fading down the page */
+.fx-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.fx-bg i { position: absolute; width: 48vmax; height: 48vmax; border-radius: 50%; filter: blur(72px); opacity: .2; will-change: transform; animation: fx-drift 28s var(--fx-ease) infinite alternate; }
+.fx-bg i:nth-child(1) { background: var(--accent); top: -22vmax; left: -12vmax; }
+.fx-bg i:nth-child(2) { background: var(--fx-2); top: 8vmax; right: -20vmax; animation-duration: 34s; animation-delay: -9s; }
+.fx-bg i:nth-child(3) { background: var(--fx-3); bottom: -26vmax; left: 18vmax; opacity: .12; animation-duration: 40s; animation-delay: -17s; }
+.fx-bg b { position: absolute; inset: 0; opacity: .55; background-image: radial-gradient(color-mix(in srgb, var(--text, #111) 16%, transparent) 1px, transparent 1.3px); background-size: 22px 22px; -webkit-mask-image: radial-gradient(ellipse 90% 55% at 50% 0%, #000 25%, transparent 75%); mask-image: radial-gradient(ellipse 90% 55% at 50% 0%, #000 25%, transparent 75%); }
+@keyframes fx-drift { from { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); } to { transform: translate3d(7vmax, 5vmax, 0) scale(1.18) rotate(25deg); } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .fx-bg i { opacity: .3; } :root:not([data-theme="light"]) .fx-bg i:nth-child(3) { opacity: .16; } }
+
+.fx-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 1000; pointer-events: none; transform-origin: 0 50%; transform: scaleX(var(--p, 0)); background: linear-gradient(90deg, var(--accent), var(--fx-2), var(--fx-3)); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent); }
+.fx-cursor { position: fixed; left: 0; top: 0; z-index: -1; width: 560px; height: 560px; margin: -280px 0 0 -280px; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .4s; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 14%, transparent), transparent 62%); transform: translate3d(var(--x, -999px), var(--y, -999px), 0); }
+.fx-cursor.on { opacity: 1; }
+
+/* the hero: a glass panel with the 3D scene on the right (behind the text on phones) */
+.fx-hero { --pad: clamp(24px, 5vw, 60px); position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 14px;
+  min-height: clamp(380px, 56vh, 580px); margin-top: 14px; padding: var(--pad); border: 1px solid var(--fx-line); border-radius: 28px;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--surface, #fff) 92%, transparent), color-mix(in srgb, var(--surface, #fff) 55%, transparent));
+  -webkit-backdrop-filter: blur(10px) saturate(140%); backdrop-filter: blur(10px) saturate(140%); box-shadow: 0 30px 80px -40px color-mix(in srgb, var(--accent) 45%, transparent), 0 1px 0 rgb(255 255 255 / .06) inset; }
+.fx-hero::before { content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: conic-gradient(from var(--fx-angle, 0deg), transparent 0 70%, var(--accent) 80%, var(--fx-2) 88%, transparent 96%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: fx-beam 7s linear infinite; }
+@property --fx-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes fx-beam { to { --fx-angle: 360deg; } }
+.fx-hero > :not(.fx-scene) { position: relative; z-index: 1; max-width: min(600px, 54%); }
+.fx-hero.top > .brand, .fx-hero.top > .actions { max-width: min(600px, 54%); }
+.fx-scene { position: absolute !important; inset: 0 0 0 36%; z-index: 0 !important; pointer-events: none; opacity: 0; transition: opacity 1.4s var(--fx-ease);
+  -webkit-mask-image: linear-gradient(90deg, transparent 10%, #000 42%); mask-image: linear-gradient(90deg, transparent 10%, #000 42%); }
+.fx-scene.on { opacity: 1; }
+.fx-scene canvas { display: block; width: 100% !important; height: 100% !important; }
+.fx-eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 8px; border-radius: 999px; font: 600 12.5px/1.2 var(--font, system-ui); letter-spacing: .02em;
+  color: var(--text); background: color-mix(in srgb, var(--surface, #fff) 70%, transparent); border: 1px solid var(--fx-line); }
+.fx-eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); animation: fx-ping 2.4s ease-out infinite; }
+@keyframes fx-ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 80%, 100% { box-shadow: 0 0 0 10px transparent; } }
+.fx-title { background: linear-gradient(100deg, var(--text) 0%, var(--text) 30%, var(--accent) 48%, var(--fx-2) 58%, var(--text) 76%) 0 0 / 250% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; animation: fx-shine 9s ease-in-out infinite alternate; }
+@keyframes fx-shine { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+.fx-tags { display: flex; gap: 8px; overflow: hidden; width: 100%; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.fx-tags > div { display: flex; gap: 8px; flex: none; animation: fx-marquee 32s linear infinite; }
+.fx-tags span { flex: none; padding: 4px 11px; border-radius: 999px; font: 600 12px/1.4 var(--mono, ui-monospace, monospace); color: var(--muted); border: 1px solid var(--fx-line); background: color-mix(in srgb, var(--surface, #fff) 60%, transparent); }
+@keyframes fx-marquee { to { transform: translateX(calc(-50% - 4px)); } }
+.fx-stats { display: flex; flex-wrap: wrap; gap: 10px 26px; margin-top: 4px; }
+.fx-stats div { display: grid; }
+.fx-stats b { font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.fx-stats span { font-size: 12.5px; color: var(--muted); }
+
+/* glass navigation with scroll spy */
+.fx-nav { position: sticky; top: 10px; z-index: 50; display: flex; align-items: center; gap: 6px; margin: 12px 0 0; padding: 6px; border-radius: 16px; border: 1px solid var(--fx-line);
+  background: color-mix(in srgb, var(--surface, #fff) 72%, transparent); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); box-shadow: 0 12px 30px -18px rgb(0 0 0 / .35); overflow-x: auto; scrollbar-width: none; }
+.fx-nav::-webkit-scrollbar { display: none; }
+.fx-nav a { flex: none; padding: 7px 12px; border-radius: 10px; font: 600 13px/1.2 var(--font, system-ui); color: var(--muted); text-decoration: none; transition: color .2s, background .2s; white-space: nowrap; }
+.fx-nav a:hover, .fx-nav a[aria-current="true"] { color: var(--text); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.fx-nav .fx-home { color: var(--text); }
+.fx-nav .fx-gh { margin-left: auto; color: var(--text); border: 1px solid var(--fx-line); }
+
+/* cards: a spotlight follows the pointer, and the border lights up near it */
+.fx-spot { position: relative; }
+.fx-spot::before, .fx-spot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .35s ease; }
+.fx-spot::before { background: radial-gradient(560px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--accent) 7%, transparent), transparent 42%); }
+.fx-spot::after { padding: 1px; background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--accent) 75%, transparent), transparent 46%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.fx-spot:hover::before, .fx-spot:hover::after { opacity: 1; }
+.fx-tilt { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--lift, 0px)); transition: transform .5s var(--fx-ease), box-shadow .5s var(--fx-ease); will-change: transform; }
+.fx-tilt:hover { --lift: -3px; box-shadow: 0 22px 40px -24px color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* reveal on scroll: fade up out of a blur, staggered */
+.fx-reveal { opacity: 0; transform: translateY(18px) scale(.985); filter: blur(8px); transition: opacity .9s var(--fx-ease), transform .9s var(--fx-ease), filter .9s var(--fx-ease); transition-delay: var(--d, 0ms); }
+.fx-reveal.fx-in { opacity: 1; transform: none; filter: none; }
+
+/* buttons: a light sweep across the primary action */
+.fx-shimmer { position: relative; overflow: hidden; isolation: isolate; transition: transform .25s var(--fx-ease), box-shadow .25s var(--fx-ease); }
+.fx-shimmer::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(110deg, transparent 20%, rgb(255 255 255 / .38) 45%, transparent 60%) -150% 0 / 60% 100% no-repeat; animation: fx-sweep 3.6s ease-in-out infinite; }
+.fx-shimmer:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -12px var(--accent); }
+@keyframes fx-sweep { 0%, 55% { background-position: -150% 0; } 100% { background-position: 250% 0; } }
+
+/* charts draw themselves in; bars grow */
+svg .fx-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: fx-drawin 1.6s var(--fx-ease) forwards; }
+@keyframes fx-drawin { to { stroke-dashoffset: 0; } }
+svg circle.fx-pop { transform-box: fill-box; transform-origin: center; animation: fx-pop .6s var(--fx-ease) both; animation-delay: var(--d, 0ms); }
+@keyframes fx-pop { from { transform: scale(0); opacity: 0; } }
+
+/* the dock: theme, motion, share, back to top */
+.fx-dock { position: fixed; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); z-index: 900; display: flex; gap: 4px; padding: 5px; border-radius: 16px;
+  border: 1px solid var(--fx-line); background: color-mix(in srgb, var(--surface, #fff) 72%, transparent); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 16px 40px -18px rgb(0 0 0 / .45); }
+.fx-dock button { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 11px; background: transparent; color: var(--text); cursor: pointer; transition: background .2s, transform .25s var(--fx-ease), opacity .3s, width .3s var(--fx-ease); }
+.fx-dock button:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); transform: translateY(-2px); }
+.fx-dock button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fx-dock button.off { width: 0; opacity: 0; pointer-events: none; margin-left: -4px; }
+.fx-dock svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.fx-dock [data-fx="motion"][aria-pressed="true"] svg, .fx-dock [data-fx="motion"] svg path[d^="M7 4.5"] { fill: currentColor; }
+.fx-toast { position: fixed; left: 50%; bottom: 24px; z-index: 950; padding: 9px 16px; border-radius: 12px; font: 600 13.5px/1.3 var(--font, system-ui); color: var(--bg, #fff); background: var(--text, #111);
+  box-shadow: 0 16px 40px -16px rgb(0 0 0 / .5); transform: translate(-50%, 16px); opacity: 0; pointer-events: none; transition: opacity .3s, transform .4s var(--fx-ease); max-width: calc(100vw - 32px); overflow-wrap: anywhere; }
+.fx-toast.on { opacity: 1; transform: translate(-50%, 0); }
+/* motion paused: every animation holds its frame, reveals show at once */
+.fx-still *, .fx-still *::before, .fx-still *::after { animation-play-state: paused !important; }
+.fx-still .fx-reveal { opacity: 1; transform: none; filter: none; transition: none; }
+.fx-still .fx-cursor { display: none; }
+@media (max-width: 760px) { .fx-dock button { width: 34px; height: 34px; } .fx-dock svg { width: 17px; height: 17px; } }
+@media print { .fx-bg, .fx-cursor, .fx-progress, .fx-dock, .fx-toast, .fx-scene { display: none !important; } .fx-hero { min-height: 0; box-shadow: none; } }
+
+@media (max-width: 760px) {
+  .fx-hero { min-height: 0; }
+  .fx-hero > :not(.fx-scene), .fx-hero.top > .brand, .fx-hero.top > .actions { max-width: 100%; }
+  /* on a phone the scene becomes a banner above the text instead of sitting behind it */
+  .fx-scene { position: relative !important; inset: auto; order: -1; flex: none; align-self: stretch; height: 230px; width: calc(100% + 2 * var(--pad)); margin: calc(-1 * var(--pad)) calc(-1 * var(--pad)) -6px;
+    -webkit-mask-image: linear-gradient(180deg, #000 62%, transparent); mask-image: linear-gradient(180deg, #000 62%, transparent); }
+  .fx-scene.on { opacity: 1; }
+  .fx-bg i { filter: blur(50px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-bg i, .fx-hero::before, .fx-title, .fx-tags > div, .fx-shimmer::after, .fx-eyebrow::before { animation: none !important; }
+  .fx-reveal { opacity: 1; transform: none; filter: none; transition: none; }
+  svg .fx-draw { animation: none; stroke-dashoffset: 0; }
+  svg circle.fx-pop { animation: none; }
+  .fx-tilt { transform: none !important; }
+}
+
+/* older demos are tools first: a shorter hero keeps the tool near the top */
+html[data-fx-compact] .fx-hero { min-height: clamp(250px, 34vh, 360px); gap: 12px; }
+.fx-hero > h1 { font-size: clamp(34px, 5.6vw, 64px); letter-spacing: -.035em; line-height: 1.04; }
+.fx-hero.top .fx-tags { max-width: min(600px, 54%); }
+
+/* older demos' own header rules centre their content in a row; as a hero it reads left to right */
+header.top.fx-hero { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: flex-start; justify-content: center; text-align: left; gap: 14px; padding: var(--pad); }
+header.top.fx-hero > .brand { display: flex; align-items: center; gap: 16px; margin: 0; text-align: left; }
+header.top.fx-hero > .brand h1 { margin: 0 0 4px; font-size: clamp(28px, 4.2vw, 46px); line-height: 1.05; letter-spacing: -.03em; }
+header.top.fx-hero > .brand .sub, header.top.fx-hero > .brand p { max-width: 52ch; }
+header.top.fx-hero > .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; justify-content: flex-start; }
+html[data-fx-compact] .fx-scene { inset: 0 0 0 44%; -webkit-mask-image: linear-gradient(90deg, transparent, #000 34%); mask-image: linear-gradient(90deg, transparent, #000 34%); }
+@media (max-width: 760px) { html[data-fx-compact] .fx-scene { inset: auto; height: 190px; -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent); mask-image: linear-gradient(180deg, #000 60%, transparent); } }
+/* while someone types, the dock steps aside so it never covers a field */
+body:has(input:focus, textarea:focus, select:focus, [contenteditable]:focus) .fx-dock { opacity: 0; pointer-events: none; transform: translateY(12px); }
+.fx-dock { transition: opacity .25s, transform .3s var(--fx-ease); }

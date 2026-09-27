@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/umer-78/text-search/actions/workflows/ci.yml/badge.svg)](https://github.com/umer-78/text-search/actions/workflows/ci.yml)
 
+[![Text Search: the live demo](.github/preview.jpg)](https://umer-78.github.io/text-search/)
+
 **Live demo:** https://umer-78.github.io/text-search/
 
 A search engine written from scratch in Python: an inverted index that records
