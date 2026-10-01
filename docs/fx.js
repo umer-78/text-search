@@ -140,6 +140,51 @@ function syncResets() {
 }
 let syncTimer = 0;
 const syncSoon = () => { clearTimeout(syncTimer); syncTimer = setTimeout(syncResets, 30); };
+
+// ── Shareable deep links ───────────────────────────────────────
+// Mirror the page's control selections into the URL (#fx=...), so a particular
+// view can be linked to and the dock's Share button copies it. Opt a page out
+// with <html data-fx-nolink> (e.g. a page that routes on the hash itself).
+const linkOn = !doc.hasAttribute('data-fx-nolink');
+const stateKey = (el) => el.id || el.name;
+function writeLink() {
+  if (!linkOn) return;
+  try {
+    const o = {};
+    for (const el of document.querySelectorAll(CONTROL)) {
+      if (!isControl(el) || !stateKey(el) || el.type === 'password') continue;
+      o[stateKey(el)] = snap(el);
+    }
+    const base = location.pathname + location.search;
+    const keys = Object.keys(o);
+    if (!keys.length) { history.replaceState(null, '', base); return; }
+    const packed = btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=+$/, '');
+    history.replaceState(null, '', `${base}#fx=${packed}`);
+  } catch { /* URL state is a convenience; never let it break the page */ }
+}
+const linkSoon = () => { clearTimeout(syncTimer); syncTimer = setTimeout(() => { syncResets(); writeLink(); }, 60); };
+function readLink() {
+  if (!linkOn) return false;
+  const m = location.hash.match(/[#&]fx=([^&]+)/);
+  if (!m) return false;
+  let o;
+  try { o = JSON.parse(decodeURIComponent(escape(atob(m[1])))); } catch { return false; }
+  let changed = false;
+  for (const el of document.querySelectorAll(CONTROL)) {
+    const k = stateKey(el);
+    if (!k || !(k in o)) continue;
+    try {
+      const v = o[k];
+      if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!v;
+      else if (el.tagName === 'SELECT' && ![...el.options].some((op) => op.value === v)) continue;
+      else el.value = v;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      changed = true;
+    } catch { /* skip a control that will not take the value */ }
+  }
+  return changed;
+}
 function restore(scope) {
   arm();
   const pool = [...originals.keys()].filter((el) => {
@@ -250,7 +295,7 @@ function dock() {
     theme() { const next = isDark() ? 'light' : 'dark'; applyTheme(next === (systemDark() ? 'dark' : 'light') ? null : next); store.set('fx-theme', doc.dataset.theme || null); paint(); say(`${isDark() ? 'Dark' : 'Light'} theme`); },
     motion() { setStill(!doc.classList.contains('fx-still')); paint(); say(doc.classList.contains('fx-still') ? 'Motion paused' : 'Motion on'); },
     async share() {
-      const url = location.href.split('#')[0];
+      const url = location.href;
       try { if (navigator.share && !fine) { await navigator.share({ title: document.title, url }); return; } await navigator.clipboard.writeText(url); say('Link copied'); } catch { say(url); }
     },
     top() { scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); },
@@ -391,10 +436,11 @@ function start() {
   pointer();
   // the page's starting state is whatever it shows the moment someone first reaches for it
   for (const type of ['pointerdown', 'keydown', 'focusin']) document.addEventListener(type, arm, true);
-  for (const type of ['input', 'change', 'click']) document.addEventListener(type, syncSoon, true);
+  for (const type of ['input', 'change', 'click']) document.addEventListener(type, linkSoon, true);
   steppers();
   inlineResets();
-  addEventListener('load', () => setTimeout(inlineResets, 400));
+  readLink();
+  addEventListener('load', () => setTimeout(() => { inlineResets(); if (!armed) readLink(); }, 400));
   let t = 0;
   new MutationObserver((muts) => {
     if (armed) for (const m of muts) m.addedNodes.forEach(remember);
